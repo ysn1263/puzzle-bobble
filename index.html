@@ -2,486 +2,636 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>泡泡龍大作戰 - Puzzle Bobble Arcade</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
     <style>
         * {
             box-sizing: border-box;
             user-select: none;
             -webkit-user-select: none;
-            touch-action: none;
-        }
-        body, html {
             margin: 0;
             padding: 0;
+        }
+        body, html {
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: #090D16;
+            background-color: #090d16;
             font-family: 'Zen Maru Gothic', sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            touch-action: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
         }
         .glass-panel {
             background: rgba(15, 23, 42, 0.75);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.15);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
         }
-        .neon-text-cyan { text-shadow: 0 0 8px rgba(6, 182, 212, 0.8); }
-        .neon-text-pink { text-shadow: 0 0 8px rgba(236, 72, 153, 0.8); }
-        .neon-text-yellow { text-shadow: 0 0 8px rgba(234, 179, 8, 0.8); }
+        .neon-text-cyan { text-shadow: 0 0 10px rgba(6, 182, 212, 0.8); }
+        .neon-text-pink { text-shadow: 0 0 10px rgba(236, 72, 153, 0.8); }
+        .neon-text-yellow { text-shadow: 0 0 10px rgba(234, 179, 8, 0.8); }
+        
+        /* 避免 Safe Area 遮擋 */
+        .safe-padding {
+            padding-top: max(12px, env(safe-area-inset-top));
+            padding-bottom: max(12px, env(safe-area-inset-bottom));
+            padding-left: max(12px, env(safe-area-inset-left));
+            padding-right: max(12px, env(safe-area-inset-right));
+        }
     </style>
 </head>
-<body class="relative flex items-center justify-center min-h-screen text-white">
+<body class="relative w-full h-full text-white overflow-hidden">
 
-    <canvas id="gameCanvas" class="absolute inset-0 w-full h-full z-0"></canvas>
+    <canvas id="gameCanvas"></canvas>
 
-    <header class="fixed top-3 left-1/2 -translate-x-1/2 z-10 w-[95%] max-w-2xl px-4 py-2 rounded-2xl glass-panel flex items-center justify-between text-xs md:text-sm">
-        <div class="flex items-center space-x-3">
-            <div class="flex flex-col">
-                <span class="text-gray-400 text-[10px]">STAGE</span>
-                <span id="levelDisplay" class="font-black text-cyan-400 text-base neon-text-cyan">1</span>
+    <div id="hud" class="fixed top-0 left-0 w-full z-10 pointer-events-none safe-padding flex flex-col items-center">
+        <div class="glass-panel rounded-2xl px-4 py-2 flex items-center justify-between w-[95%] max-w-4xl text-xs md:text-sm pointer-events-auto transition-all">
+            <div class="flex items-center space-x-3 md:space-x-6">
+                <div>🎯 LV: <span id="hud-level" class="font-bold text-cyan-400 neon-text-cyan">1</span></div>
+                <div>⭐ SCORE: <span id="hud-score" class="font-bold text-yellow-300 neon-text-yellow">0</span></div>
+                <div class="hidden sm:block">🏆 HIGH: <span id="hud-high" class="font-bold text-pink-400 neon-text-pink">0</span></div>
+                <div>🔥 COMBO: <span id="hud-combo" class="font-bold text-orange-400">x0</span></div>
             </div>
-            <div class="flex flex-col">
-                <span class="text-gray-400 text-[10px]">SCORE</span>
-                <span id="scoreDisplay" class="font-black text-yellow-400 text-base neon-text-yellow">0</span>
+            
+            <div class="flex items-center space-x-2 md:space-x-4">
+                <div class="hidden md:flex items-center space-x-1">
+                    <span class="text-xs text-slate-400">MISS:</span>
+                    <span id="hud-miss" class="text-red-400 font-bold">0/5</span>
+                </div>
+                <button id="btn-bgm" class="px-2 py-1 rounded bg-slate-800/80 hover:bg-slate-700 text-xs border border-slate-600">🎵 ON</button>
+                <button id="btn-sfx" class="px-2 py-1 rounded bg-slate-800/80 hover:bg-slate-700 text-xs border border-slate-600">🔊 ON</button>
+                <button id="btn-pause" class="px-2.5 py-1 rounded bg-cyan-600/80 hover:bg-cyan-500 text-xs font-bold border border-cyan-400">⏸</button>
+                <button id="btn-restart" class="px-2.5 py-1 rounded bg-red-600/80 hover:bg-red-500 text-xs font-bold border border-red-400">🔄</button>
             </div>
-            <div class="flex flex-col hidden sm:flex">
-                <span class="text-gray-400 text-[10px]">HIGH</span>
-                <span id="highScoreDisplay" class="font-black text-pink-400 text-base neon-text-pink">0</span>
-            </div>
-        </div>
-        
-        <div class="flex items-center space-x-2">
-            <button id="bgmBtn" class="px-2.5 py-1.5 rounded-xl glass-panel hover:bg-white/10 transition active:scale-95 text-xs font-bold">🎵 BGM ON</button>
-            <button id="sfxBtn" class="px-2.5 py-1.5 rounded-xl glass-panel hover:bg-white/10 transition active:scale-95 text-xs font-bold">🔊 SFX ON</button>
-            <button id="restartBtn" class="px-2.5 py-1.5 rounded-xl glass-panel hover:bg-white/10 transition active:scale-95 text-xs font-bold bg-rose-500/20 text-rose-300 border-rose-500/30">🔄</button>
-        </div>
-    </header>
-
-    <div id="startModal" class="fixed inset-0 z-20 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-        <div class="glass-panel p-8 rounded-3xl max-w-md w-full text-center flex flex-col items-center border border-cyan-500/30">
-            <h1 class="text-4xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-pink-500 to-yellow-400 animate-pulse">泡泡龍大作戰</h1>
-            <p class="text-gray-300 text-sm mb-6">CLASSIC BUBBLE SHOOTER ARCADE</p>
-            <div class="text-left text-xs text-gray-300 space-y-2 mb-6 w-full glass-panel p-4 rounded-2xl bg-black/20">
-                <p>🎯 <b>瞄準與發射：</b> 滑鼠/手指滑動瞄準，放開或按空白鍵發射。</p>
-                <p>💥 <b>消除機制：</b> 連接 3 個或以上同色泡泡即可消除。</p>
-                <p>🎈 <b>懸空掉落：</b> 切斷頂部支撐可使懸空泡泡掉落獲得高分！</p>
-                <p>⚠️ <b>警示防線：</b> 發射多次未消除陣列將下壓，越過紅線即失敗。</p>
-            </div>
-            <button id="startBtn" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-black text-lg shadow-lg shadow-cyan-500/30 transition transform hover:scale-105 active:scale-95">開始遊戲</button>
         </div>
     </div>
 
-    <div id="statusModal" class="fixed inset-0 z-20 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md hidden">
-        <div class="glass-panel p-8 rounded-3xl max-w-md w-full text-center flex flex-col items-center">
-            <h2 id="modalTitle" class="text-3xl font-black mb-2 text-pink-500 neon-text-pink">GAME OVER</h2>
-            <p id="modalSubtitle" class="text-gray-300 text-sm mb-4">泡泡越過防範警示線！</p>
-            <div class="text-center mb-6">
-                <span class="text-xs text-gray-400 block">最終得分</span>
-                <span id="finalScore" class="text-4xl font-black text-yellow-400 neon-text-yellow">0</span>
+    <div id="modal-container" class="fixed inset-0 z-20 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md transition-opacity duration-300">
+        
+        <div id="modal-start" class="glass-panel rounded-3xl p-6 md:p-8 max-w-md w-full text-center space-y-6">
+            <div class="space-y-2">
+                <h1 class="text-3xl md:text-4xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 neon-text-cyan">
+                    🐉 泡泡龍大作戰
+                </h1>
+                <p class="text-xs md:text-sm text-cyan-200 tracking-widest font-bold">PUZZLE BOBBLE ARCADE</p>
             </div>
-            <button id="modalActionBtn" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-400 hover:to-rose-500 text-white font-black text-lg shadow-lg shadow-pink-500/30 transition transform hover:scale-105 active:scale-95">再試一次</button>
+
+            <div class="py-2 flex justify-center space-x-1">
+                <span class="text-yellow-400 text-xl">★</span>
+                <span class="text-yellow-400 text-xl">★</span>
+                <span class="text-yellow-400 text-xl">★</span>
+                <span class="text-yellow-400 text-xl">★</span>
+                <span class="text-yellow-400 text-xl">★</span>
+            </div>
+
+            <div class="bg-slate-900/60 p-4 rounded-xl text-left text-xs md:text-sm space-y-2 border border-slate-700/50">
+                <p class="text-slate-300 font-bold border-b border-slate-700 pb-1">🎮 操作說明：</p>
+                <p class="text-slate-400">🖱️/👆 滑鼠與觸控：移動瞄準，點擊發射</p>
+                <p class="text-slate-400">⌨️ 鍵盤：A/D 或 ←/→ 瞄準，Space 發射</p>
+                <p class="text-slate-400">⏸ 鍵盤 P / ESC：暫停遊戲</p>
+            </div>
+
+            <div class="text-sm font-bold text-slate-300">
+                最高紀錄：<span id="start-high-score" class="text-yellow-400 text-base">0</span>
+            </div>
+
+            <button id="btn-start-game" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-black text-lg tracking-wider shadow-lg shadow-cyan-500/30 transform active:scale-95 transition">
+                開始遊戲 (START)
+            </button>
+        </div>
+
+        <div id="modal-pause" class="glass-panel rounded-3xl p-6 md:p-8 max-w-sm w-full text-center space-y-6 hidden">
+            <h2 class="text-3xl font-black text-cyan-300 neon-text-cyan">⏸ 遊戲暫停</h2>
+            <div class="space-y-3">
+                <button id="btn-resume" class="w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 font-bold text-base shadow-md">
+                    繼續遊戲
+                </button>
+                <button id="btn-pause-restart" class="w-full py-3 rounded-xl bg-slate-700 hover:bg-slate-600 font-bold text-base border border-slate-500">
+                    重新開始
+                </button>
+            </div>
+        </div>
+
+        <div id="modal-clear" class="glass-panel rounded-3xl p-6 md:p-8 max-w-sm w-full text-center space-y-5 hidden">
+            <h2 class="text-3xl font-black text-yellow-300 neon-text-yellow">🎉 LEVEL CLEAR!</h2>
+            <div class="space-y-2 bg-slate-900/60 p-4 rounded-xl border border-slate-700/50 text-sm">
+                <div class="flex justify-between text-slate-300"><span>過關獎勵</span><span id="clear-bonus" class="text-yellow-400 font-bold">+1000</span></div>
+                <div class="flex justify-between text-slate-300"><span>最高 Combo</span><span id="clear-combo" class="text-orange-400 font-bold">x3</span></div>
+                <hr class="border-slate-700">
+                <div class="flex justify-between text-base font-bold text-white"><span>總得分</span><span id="clear-total-score" class="text-cyan-400">12500</span></div>
+            </div>
+            <button id="btn-next-level" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 font-black text-lg shadow-lg shadow-green-500/30 active:scale-95 transition">
+                進入下一關
+            </button>
+        </div>
+
+        <div id="modal-gameover" class="glass-panel rounded-3xl p-6 md:p-8 max-w-sm w-full text-center space-y-5 hidden">
+            <h2 class="text-3xl font-black text-red-500 neon-text-pink">GAME OVER</h2>
+            <p id="gameover-new-high" class="text-xs font-bold text-yellow-300 animate-pulse hidden">✨ NEW HIGH SCORE! ✨</p>
+            <div class="space-y-2 bg-slate-900/60 p-4 rounded-xl border border-slate-700/50 text-sm">
+                <div class="flex justify-between text-slate-300"><span>最終得分</span><span id="gameover-score" class="text-white font-bold">0</span></div>
+                <div class="flex justify-between text-slate-300"><span>最高分數</span><span id="gameover-high" class="text-yellow-400 font-bold">0</span></div>
+            </div>
+            <button id="btn-gameover-restart" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-400 hover:to-pink-500 font-black text-lg shadow-lg shadow-red-500/30 active:scale-95 transition">
+                再試一次
+            </button>
         </div>
     </div>
 
     <script>
-        // --- 1. 全域變數與宣告 ---
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
+    (() => {
+        // --- 1. CONFIG & CONSTANTS ---
+        const BUBBLE_COLORS = {
+            RED:      { main: '#ef4444', light: '#fca5a5', dark: '#991b1b', shadow: 'rgba(239,68,68,0.6)' },
+            YELLOW:   { main: '#eab308', light: '#fef08a', dark: '#854d0e', shadow: 'rgba(234,179,8,0.6)' },
+            GREEN:    { main: '#22c55e', light: '#86efac', dark: '#166534', shadow: 'rgba(34,197,94,0.6)' },
+            BLUE:     { main: '#3b82f6', light: '#93c5fd', dark: '#1e40af', shadow: 'rgba(59,130,246,0.6)' },
+            PURPLE:   { main: '#a855f7', light: '#d8b4fe', dark: '#6b21a8', shadow: 'rgba(168,85,247,0.6)' },
+            PINK:     { main: '#ec4899', light: '#fbcfe8', dark: '#9d174d', shadow: 'rgba(236,72,153,0.6)' }
+        };
 
-        // UI 元素
-        const levelDisplay = document.getElementById('levelDisplay');
-        const scoreDisplay = document.getElementById('scoreDisplay');
-        const highScoreDisplay = document.getElementById('highScoreDisplay');
-        const bgmBtn = document.getElementById('bgmBtn');
-        const sfxBtn = document.getElementById('sfxBtn');
-        const restartBtn = document.getElementById('restartBtn');
-        const startModal = document.getElementById('startModal');
-        const startBtn = document.getElementById('startBtn');
-        const statusModal = document.getElementById('statusModal');
-        const modalTitle = document.getElementById('modalTitle');
-        const modalSubtitle = document.getElementById('modalSubtitle');
-        const finalScore = document.getElementById('finalScore');
-        const modalActionBtn = document.getElementById('modalActionBtn');
+        const SPECIAL_TYPES = {
+            NONE: 'none',
+            RAINBOW: 'rainbow',
+            BOMB: 'bomb',
+            LIGHTNING: 'lightning'
+        };
 
-        // 遊戲狀態
-        let gameState = 'START'; // START, PLAYING, GAMEOVER, CLEAR
-        let score = 0;
-        let highScore = parseInt(localStorage.getItem('pb_high_score') || '0');
-        let level = 1;
-        let bgmEnabled = localStorage.getItem('pb_bgm') !== 'false';
-        let sfxEnabled = localStorage.getItem('pb_sfx') !== 'false';
+        const GAME_STATES = {
+            MENU: 'MENU',
+            PLAYING: 'PLAYING',
+            PAUSED: 'PAUSED',
+            LEVEL_CLEAR: 'LEVEL_CLEAR',
+            GAME_OVER: 'GAME_OVER'
+        };
 
-        // 螢幕與 DPI 適配
-        let dpr = window.devicePixelRatio || 1;
-        let playfield = { x: 0, y: 0, width: 0, height: 0, topPadding: 80 };
-        let screenShakeTime = 0;
-
-        // 網格與泡泡參數
         const GRID_ROWS = 12;
         const GRID_COLS = 8;
-        let BUBBLE_RADIUS = 20;
-        let grid = []; // GRID_ROWS x GRID_COLS
+        const MISS_LIMIT = 5;
 
-        // 泡泡色彩定義
-        const BUBBLE_TYPES = {
-            RED: { id: 'RED', color: '#EF4444', light: '#FCA5A5', dark: '#991B1B' },
-            BLUE: { id: 'BLUE', color: '#3B82F6', light: '#93C5FD', dark: '#1E40AF' },
-            GREEN: { id: 'GREEN', color: '#10B981', light: '#6EE7B7', dark: '#065F46' },
-            YELLOW: { id: 'YELLOW', color: '#F59E0B', light: '#FDE68A', dark: '#92400E' },
-            PURPLE: { id: 'PURPLE', color: '#8B5CF6', light: '#C4B5FD', dark: '#5B21B6' },
-            PINK: { id: 'PINK', color: '#EC4899', light: '#FBCFE8', dark: '#9D174D' },
-            // 特殊泡泡
-            BOMB: { id: 'BOMB', color: '#374151', light: '#9CA3AF', dark: '#111827', special: 'BOMB' },
-            RAINBOW: { id: 'RAINBOW', color: '#F43F5E', light: '#FFFFFF', dark: '#881337', special: 'RAINBOW' },
-            LASER: { id: 'LASER', color: '#06B6D4', light: '#CFFAFE', dark: '#164E63', special: 'LASER' }
-        };
-        const COLOR_KEYS = ['RED', 'BLUE', 'GREEN', 'YELLOW', 'PURPLE', 'PINK'];
-
-        // 發射器與當前/下一個泡泡
-        let cannon = { x: 0, y: 0, angle: Math.PI / 2 }; // angle: 0 (Right), Math.PI/2 (Up), Math.PI (Left)
-        let currentBubble = null;
-        let nextBubble = null;
-        let currentSpecial = null;
-        let currentFlyingBubble = null;
-        let shotsFiredCount = 0;
-        const SHOTS_UNTIL_DROP = 5;
-
-        // 特效與粒子
-        let particles = [];
-        let floatingBubbles = []; // 懸空掉落掉出畫面的泡泡
-        let scoreTexts = [];
-        let bgParticles = [];
-
-        // --- 2. Web Audio API 音聲引擎 ---
-        let audioCtx = null;
-        let bgmOsc1 = null, bgmOsc2 = null, bgmGain = null;
-        let bgmInterval = null;
-
-        function initAudio() {
-            if (!audioCtx) {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                audioCtx = new AudioContext();
+        // --- 2. AUDIO SYSTEM (Web Audio API Engine) ---
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.bgmGain = null;
+                this.sfxGain = null;
+                this.bgmEnabled = true;
+                this.sfxEnabled = true;
+                this.bgmTimer = null;
+                this.step = 0;
             }
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
+
+            init() {
+                if (this.ctx) return;
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioCtx();
+
+                this.bgmGain = this.ctx.createGain();
+                this.sfxGain = this.ctx.createGain();
+
+                this.bgmGain.connect(this.ctx.destination);
+                this.sfxGain.connect(this.ctx.destination);
+
+                this.setBGMVolume(this.bgmEnabled ? 0.15 : 0);
+                this.setSFXVolume(this.sfxEnabled ? 0.3 : 0);
             }
-        }
 
-        function playSound(type) {
-            if (!sfxEnabled || !audioCtx) return;
-            const now = audioCtx.currentTime;
+            resume() {
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
 
-            if (type === 'shoot') {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(300, now);
-                osc.frequency.exponentialRampToValueAtTime(700, now + 0.1);
-                gain.gain.setValueAtTime(0.3, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start(now);
-                osc.stop(now + 0.1);
-            } else if (type === 'bounce') {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(400, now);
-                gain.gain.setValueAtTime(0.2, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start(now);
-                osc.stop(now + 0.05);
-            } else if (type === 'stick') {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(200, now);
-                osc.frequency.exponentialRampToValueAtTime(120, now + 0.08);
-                gain.gain.setValueAtTime(0.25, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start(now);
-                osc.stop(now + 0.08);
-            } else if (type === 'pop') {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(600, now);
-                osc.frequency.exponentialRampToValueAtTime(1200, now + 0.12);
-                gain.gain.setValueAtTime(0.4, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start(now);
-                osc.stop(now + 0.12);
-            } else if (type === 'drop') {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(150, now);
-                osc.frequency.exponentialRampToValueAtTime(60, now + 0.25);
-                gain.gain.setValueAtTime(0.5, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start(now);
-                osc.stop(now + 0.25);
-            } else if (type === 'warning') {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(180, now);
-                gain.gain.setValueAtTime(0.3, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start(now);
-                osc.stop(now + 0.3);
-            } else if (type === 'clear') {
-                const notes = [523.25, 659.25, 783.99, 1046.50];
-                notes.forEach((freq, idx) => {
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
+            setBGMVolume(vol) { if (this.bgmGain) this.bgmGain.gain.value = vol; }
+            setSFXVolume(vol) { if (this.sfxGain) this.sfxGain.gain.value = vol; }
+
+            playTone(freq, type, duration, gainVal = 1) {
+                if (!this.sfxEnabled || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const g = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    g.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+                    g.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+                    osc.connect(g);
+                    g.connect(this.sfxGain);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e){}
+            }
+
+            playShoot() {
+                if (!this.sfxEnabled || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const g = this.ctx.createGain();
                     osc.type = 'sine';
-                    osc.frequency.setValueAtTime(freq, now + idx * 0.1);
-                    gain.gain.setValueAtTime(0.3, now + idx * 0.1);
-                    gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.25);
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.start(now + idx * 0.1);
-                    osc.stop(now + idx * 0.1 + 0.25);
-                });
-            } else if (type === 'gameover') {
-                const notes = [300, 260, 220, 150];
-                notes.forEach((freq, idx) => {
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
+                    osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.15);
+                    g.gain.setValueAtTime(0.5, this.ctx.currentTime);
+                    g.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                    osc.connect(g);
+                    g.connect(this.sfxGain);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.15);
+                } catch(e){}
+            }
+
+            playBounce() { this.playTone(300, 'triangle', 0.05, 0.4); }
+            playSnap() { this.playTone(200, 'sine', 0.08, 0.5); }
+            playPop() { this.playTone(600, 'sine', 0.1, 0.6); }
+
+            playCombo(count) {
+                const baseFreq = 400 + Math.min(count, 10) * 80;
+                this.playTone(baseFreq, 'square', 0.15, 0.5);
+            }
+
+            playDrop() {
+                if (!this.sfxEnabled || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const g = this.ctx.createGain();
                     osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(freq, now + idx * 0.15);
-                    gain.gain.setValueAtTime(0.3, now + idx * 0.15);
-                    gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.15 + 0.3);
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.start(now + idx * 0.15);
-                    osc.stop(now + idx * 0.15 + 0.3);
+                    osc.frequency.setValueAtTime(500, this.ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(100, this.ctx.currentTime + 0.25);
+                    g.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                    g.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                    osc.connect(g);
+                    g.connect(this.sfxGain);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.25);
+                } catch(e){}
+            }
+
+            playExplosion() {
+                if (!this.sfxEnabled || !this.ctx) return;
+                try {
+                    const bufferSize = this.ctx.sampleRate * 0.3;
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = Math.random() * 2 - 1;
+                    }
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buffer;
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(800, this.ctx.currentTime);
+                    filter.frequency.linearRampToValueAtTime(50, this.ctx.currentTime + 0.3);
+                    const g = this.ctx.createGain();
+                    g.gain.setValueAtTime(0.8, this.ctx.currentTime);
+                    g.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                    noise.connect(filter);
+                    filter.connect(g);
+                    g.connect(this.sfxGain);
+                    noise.start();
+                } catch(e){}
+            }
+
+            playWin() {
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((f, i) => {
+                    setTimeout(() => this.playTone(f, 'triangle', 0.2, 0.6), i * 120);
                 });
+            }
+
+            playLose() {
+                const notes = [400, 350, 300, 250];
+                notes.forEach((f, i) => {
+                    setTimeout(() => this.playTone(f, 'sawtooth', 0.25, 0.5), i * 150);
+                });
+            }
+
+            startBGM() {
+                if (this.bgmTimer) return;
+                const notes = [261.63, 329.63, 392.00, 329.63, 293.66, 349.23, 440.00, 349.23];
+                this.bgmTimer = setInterval(() => {
+                    if (!this.bgmEnabled || !this.ctx || this.ctx.state !== 'running') return;
+                    try {
+                        const freq = notes[this.step % notes.length];
+                        const osc = this.ctx.createOscillator();
+                        const g = this.ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                        g.gain.setValueAtTime(0.08, this.ctx.currentTime);
+                        g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.2);
+                        osc.connect(g);
+                        g.connect(this.bgmGain);
+                        osc.start();
+                        osc.stop(this.ctx.currentTime + 0.2);
+                        this.step++;
+                    } catch(e){}
+                }, 220);
+            }
+
+            stopBGM() {
+                if (this.bgmTimer) {
+                    clearInterval(this.bgmTimer);
+                    this.bgmTimer = null;
+                }
             }
         }
 
-        function startBGM() {
-            if (!bgmEnabled || !audioCtx) return;
-            stopBGM();
+        const sound = new SoundEngine();
 
-            bgmGain = audioCtx.createGain();
-            bgmGain.gain.value = 0.08;
-            bgmGain.connect(audioCtx.destination);
+        // --- 3. STATE & STORAGE MANAGEMENT ---
+        let gameState = GAME_STATES.MENU;
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('pb_highScore') || '0', 10);
+        let level = 1;
+        let combo = 0;
+        let missCount = 0;
+        let powerUpTimer = 0;
+        let activePowerUp = null; // 'aimGuide'
 
-            const notes = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63, 293.66, 349.23];
-            let noteIdx = 0;
+        sound.bgmEnabled = localStorage.getItem('pb_bgm') !== 'false';
+        sound.sfxEnabled = localStorage.getItem('pb_sfx') !== 'false';
 
-            bgmInterval = setInterval(() => {
-                if (!bgmEnabled || !audioCtx) return;
-                const now = audioCtx.currentTime;
-                const osc = audioCtx.createOscillator();
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(notes[noteIdx], now);
-                
-                const noteGain = audioCtx.createGain();
-                noteGain.gain.setValueAtTime(0.05, now);
-                noteGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-                
-                osc.connect(noteGain);
-                noteGain.connect(bgmGain);
-                
-                osc.start(now);
-                osc.stop(now + 0.2);
+        // --- 4. CANVAS & DISPLAY SYSTEM (DPR SCALING) ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let dpr = window.devicePixelRatio || 1;
 
-                noteIdx = (noteIdx + 1) % notes.length;
-            }, 220);
-        }
+        let viewportWidth = window.innerWidth;
+        let viewportHeight = window.innerHeight;
 
-        function stopBGM() {
-            if (bgmInterval) clearInterval(bgmInterval);
-            bgmInterval = null;
-        }
+        let gameArea = { x: 0, y: 0, width: 0, height: 0 };
+        let bubbleRadius = 20;
+        let rowHeight = 35;
 
-        // --- 3. 初始化與尺寸適配 ---
         function resizeCanvas() {
-            const width = window.innerWidth;
-            const height = window.innerHeight;
-            canvas.width = width * dpr;
-            canvas.height = height * dpr;
+            viewportWidth = window.innerWidth;
+            viewportHeight = window.innerHeight;
+            dpr = window.devicePixelRatio || 1;
+
+            canvas.width = viewportWidth * dpr;
+            canvas.height = viewportHeight * dpr;
+            canvas.style.width = viewportWidth + 'px';
+            canvas.style.height = viewportHeight + 'px';
+
             ctx.scale(dpr, dpr);
 
-            // 計算街機縱向面板區域
-            const maxPlayfieldWidth = Math.min(width * 0.92, 480);
-            const aspectHeight = maxPlayfieldWidth * 1.6;
-            playfield.width = maxPlayfieldWidth;
-            playfield.height = Math.min(height * 0.88, aspectHeight);
-            playfield.x = (width - playfield.width) / 2;
-            playfield.y = Math.max(70, (height - playfield.height) / 2);
+            // 計算街機比例遊戲區域
+            const maxGameWidth = Math.min(viewportWidth * 0.95, 520);
+            const gameHeight = viewportHeight;
+            gameArea.width = maxGameWidth;
+            gameArea.height = gameHeight;
+            gameArea.x = (viewportWidth - gameArea.width) / 2;
+            gameArea.y = 0;
 
-            // 計算泡泡半徑 (依據網格與 Playfield 寬度)
-            BUBBLE_RADIUS = playfield.width / (GRID_COLS + 0.5) / 2;
+            // 動態計算泡泡大小 (以 grid 特徵)
+            bubbleRadius = gameArea.width / (GRID_COLS + 0.5) / 2;
+            rowHeight = bubbleRadius * Math.sqrt(3);
 
-            // 更新發射器位置
-            cannon.x = playfield.x + playfield.width / 2;
-            cannon.y = playfield.y + playfield.height - BUBBLE_RADIUS * 2;
-
-            // 背景星空/粒子
-            initBgParticles();
-        }
-
-        function initBgParticles() {
-            bgParticles = [];
-            for (let i = 0; i < 40; i++) {
-                bgParticles.push({
-                    x: Math.random() * window.innerWidth,
-                    y: Math.random() * window.innerHeight,
-                    radius: Math.random() * 2 + 1,
-                    alpha: Math.random() * 0.8 + 0.2,
-                    speedY: Math.random() * -0.3 - 0.1
-                });
+            if (cannon) {
+                cannon.x = gameArea.x + gameArea.width / 2;
+                cannon.y = gameArea.height - Math.max(60, bubbleRadius * 2.5);
             }
         }
 
-        window.addEventListener('resize', resizeCanvas);
+        // --- 5. GRID & BUBBLE LOGIC ---
+        let grid = [];
 
-        // --- 4. 遊戲核心邏輯 ---
         function initGrid() {
             grid = [];
-            for (let r = 0; r < GRID_ROWS; r++) {
+            for (let r = 0; r < GRID_ROWS + 4; r++) {
                 grid[r] = [];
                 for (let c = 0; c < GRID_COLS; c++) {
                     grid[r][c] = null;
                 }
             }
-            generateLevelPattern();
-        }
-
-        function generateLevelPattern() {
-            // 根據關卡產生不同顏色的泡泡圖案
-            const availableColors = COLOR_KEYS.slice(0, Math.min(4 + Math.floor((level - 1) / 2), COLOR_KEYS.length));
-            const fillRows = Math.min(3 + Math.floor(level / 2), 6);
-
-            for (let r = 0; r < fillRows; r++) {
-                const colsInRow = (r % 2 === 1) ? GRID_COLS - 1 : GRID_COLS;
-                for (let c = 0; c < colsInRow; c++) {
-                    // 有低機率出現特殊泡泡
-                    const rand = Math.random();
-                    let type = null;
-                    if (rand < 0.03) type = BUBBLE_TYPES.BOMB;
-                    else if (rand < 0.06) type = BUBBLE_TYPES.RAINBOW;
-                    else if (rand < 0.08) type = BUBBLE_TYPES.LASER;
-                    else {
-                        const colorKey = availableColors[Math.floor(Math.random() * availableColors.length)];
-                        type = BUBBLE_TYPES[colorKey];
-                    }
-                    grid[r][c] = type;
-                }
-            }
         }
 
         function getBubbleCenter(row, col) {
-            const rowIndent = (row % 2 === 1) ? BUBBLE_RADIUS : 0;
-            const x = playfield.x + BUBBLE_RADIUS + col * (BUBBLE_RADIUS * 2) + rowIndent;
-            const y = playfield.y + playfield.topPadding + BUBBLE_RADIUS + row * (BUBBLE_RADIUS * 1.732); // sqrt(3) ~ 1.732
+            const isOdd = row % 2 !== 0;
+            const xOffset = isOdd ? bubbleRadius : 0;
+            const x = gameArea.x + bubbleRadius + col * (bubbleRadius * 2) + xOffset;
+            const y = gameArea.y + 65 + row * rowHeight + bubbleRadius; // 避開 HUD
             return { x, y };
         }
 
-        function getRandomBubbleType() {
-            // 優先從畫面上已存在的顏色中隨機抽取，保持可解性
-            const activeColors = new Set();
-            for (let r = 0; r < GRID_ROWS; r++) {
+        function getAvailableColorsInGrid() {
+            const colors = new Set();
+            for (let r = 0; r < grid.length; r++) {
                 for (let c = 0; c < GRID_COLS; c++) {
-                    if (grid[r][c] && !grid[r][c].special) {
-                        activeColors.add(grid[r][c].id);
+                    if (grid[r][c] && grid[r][c].active && grid[r][c].colorKey) {
+                        colors.add(grid[r][c].colorKey);
                     }
                 }
             }
-            const activeArr = Array.from(activeColors);
-            if (activeArr.length > 0) {
-                const picked = activeArr[Math.floor(Math.random() * activeArr.length)];
-                return BUBBLE_TYPES[picked];
-            }
-            return BUBBLE_TYPES[COLOR_KEYS[Math.floor(Math.random() * COLOR_KEYS.length)]];
+            const colorKeys = Array.from(colors);
+            return colorKeys.length > 0 ? colorKeys : Object.keys(BUBBLE_COLORS);
         }
 
-        function prepareNextBubbles() {
-            if (!currentBubble) {
-                currentBubble = nextBubble || getRandomBubbleType();
-                nextBubble = getRandomBubbleType();
+        function createRandomBubbleData(colorKeysAllowed) {
+            const keys = colorKeysAllowed || getAvailableColorsInGrid();
+            const randomKey = keys[Math.floor(Math.random() * keys.length)];
+            
+            // 機率產生特殊泡泡
+            let special = SPECIAL_TYPES.NONE;
+            const randSpecial = Math.random();
+            if (randSpecial < 0.04) special = SPECIAL_TYPES.RAINBOW;
+            else if (randSpecial < 0.08) special = SPECIAL_TYPES.BOMB;
+            else if (randSpecial < 0.11) special = SPECIAL_TYPES.LIGHTNING;
+
+            return { colorKey: randomKey, special: special };
+        }
+
+        function loadLevelPattern(lvl) {
+            initGrid();
+            const availableKeys = Object.keys(BUBBLE_COLORS);
+            const numColors = Math.min(3 + Math.floor((lvl - 1) / 2), availableKeys.length);
+            const activeKeys = availableKeys.slice(0, numColors);
+
+            const initialRows = Math.min(4 + Math.floor(lvl / 2), 8);
+
+            for (let r = 0; r < initialRows; r++) {
+                const maxC = (r % 2 !== 0) ? GRID_COLS - 1 : GRID_COLS;
+                for (let c = 0; c < maxC; c++) {
+                    // 根據關卡產生特定圖案或混色
+                    if (Math.random() > 0.1) {
+                        const colorKey = activeKeys[(r + c + lvl) % activeKeys.length];
+                        grid[r][c] = {
+                            colorKey: colorKey,
+                            special: SPECIAL_TYPES.NONE,
+                            active: true,
+                            scale: 1,
+                            alpha: 1
+                        };
+                    }
+                }
             }
         }
+
+        // --- 6. CANNON & AIMING SYSTEM ---
+        const cannon = {
+            x: 0,
+            y: 0,
+            angle: -Math.PI / 2, // 向上
+            currentBubble: null,
+            nextBubble: null,
+            recoil: 0,
+            charState: 'idle' // 'idle', 'shoot', 'happy', 'sad'
+        };
+
+        function initCannon() {
+            cannon.x = gameArea.x + gameArea.width / 2;
+            cannon.y = gameArea.height - Math.max(60, bubbleRadius * 2.5);
+            cannon.angle = -Math.PI / 2;
+            cannon.recoil = 0;
+            
+            const activeColors = getAvailableColorsInGrid();
+            cannon.currentBubble = createRandomBubbleData(activeColors);
+            cannon.nextBubble = createRandomBubbleData(activeColors);
+        }
+
+        function reloadCannon() {
+            const activeColors = getAvailableColorsInGrid();
+            cannon.currentBubble = cannon.nextBubble;
+            cannon.nextBubble = createRandomBubbleData(activeColors);
+        }
+
+        // 瞄準線反彈計算
+        function calculateAimPath() {
+            const path = [];
+            let currX = cannon.x;
+            let currY = cannon.y;
+            let dirX = Math.cos(cannon.angle);
+            let dirY = Math.sin(cannon.angle);
+
+            path.push({ x: currX, y: currY });
+
+            let maxBounce = 3;
+            let step = 0;
+
+            const leftWall = gameArea.x + bubbleRadius;
+            const rightWall = gameArea.x + gameArea.width - bubbleRadius;
+
+            while (maxBounce > 0 && step < 1000) {
+                step++;
+                currX += dirX * 5;
+                currY += dirY * 5;
+
+                // 牆壁碰撞
+                if (currX <= leftWall) {
+                    currX = leftWall;
+                    dirX *= -1;
+                    path.push({ x: currX, y: currY });
+                    maxBounce--;
+                } else if (currX >= rightWall) {
+                    currX = rightWall;
+                    dirX *= -1;
+                    path.push({ x: currX, y: currY });
+                    maxBounce--;
+                }
+
+                // 觸頂或碰到泡泡時截斷
+                if (currY <= gameArea.y + 65 + bubbleRadius) {
+                    path.push({ x: currX, y: currY });
+                    break;
+                }
+
+                // 檢查是否接近任何 Grid 泡泡
+                let hit = false;
+                for (let r = 0; r < grid.length; r++) {
+                    for (let c = 0; c < GRID_COLS; c++) {
+                        const b = grid[r][c];
+                        if (b && b.active) {
+                            const pos = getBubbleCenter(r, c);
+                            const dist = Math.hypot(currX - pos.x, currY - pos.y);
+                            if (dist < bubbleRadius * 1.8) {
+                                hit = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (hit) break;
+                }
+                if (hit) {
+                    path.push({ x: currX, y: currY });
+                    break;
+                }
+            }
+            return path;
+        }
+
+        // --- 7. FLYING BUBBLE & PHYSICS ---
+        let flyingBubble = null;
 
         function shootBubble() {
-            if (currentFlyingBubble || gameState !== 'PLAYING') return;
+            if (flyingBubble || gameState !== GAME_STATES.PLAYING) return;
 
-            const speed = 18;
-            const vx = Math.cos(cannon.angle) * speed;
-            const vy = -Math.sin(cannon.angle) * speed;
+            sound.playShoot();
+            cannon.recoil = 12;
+            cannon.charState = 'shoot';
+            setTimeout(() => { if (cannon.charState === 'shoot') cannon.charState = 'idle'; }, 300);
 
-            currentFlyingBubble = {
+            const speed = 22;
+            flyingBubble = {
                 x: cannon.x,
                 y: cannon.y,
-                vx: vx,
-                vy: vy,
-                type: currentBubble
+                vx: Math.cos(cannon.angle) * speed,
+                vy: Math.sin(cannon.angle) * speed,
+                colorKey: cannon.currentBubble.colorKey,
+                special: cannon.currentBubble.special,
+                trail: []
             };
 
-            currentBubble = null;
-            prepareNextBubbles();
-            playSound('shoot');
+            reloadCannon();
         }
 
         function updateFlyingBubble() {
-            if (!currentFlyingBubble) return;
+            if (!flyingBubble) return;
 
-            const fb = currentFlyingBubble;
-            fb.x += fb.vx;
-            fb.y += fb.vy;
+            // 軌跡點
+            flyingBubble.trail.push({ x: flyingBubble.x, y: flyingBubble.y });
+            if (flyingBubble.trail.length > 5) flyingBubble.trail.shift();
 
-            // 左右兩側牆壁反彈
-            const leftBound = playfield.x + BUBBLE_RADIUS;
-            const rightBound = playfield.x + playfield.width - BUBBLE_RADIUS;
+            flyingBubble.x += flyingBubble.vx;
+            flyingBubble.y += flyingBubble.vy;
 
-            if (fb.x <= leftBound) {
-                fb.x = leftBound;
-                fb.vx *= -1;
-                playSound('bounce');
-            } else if (fb.x >= rightBound) {
-                fb.x = rightBound;
-                fb.vx *= -1;
-                playSound('bounce');
+            const leftWall = gameArea.x + bubbleRadius;
+            const rightWall = gameArea.x + gameArea.width - bubbleRadius;
+
+            // 反彈左牆 / 右牆
+            if (flyingBubble.x <= leftWall) {
+                flyingBubble.x = leftWall;
+                flyingBubble.vx *= -1;
+                sound.playBounce();
+            } else if (flyingBubble.x >= rightWall) {
+                flyingBubble.x = rightWall;
+                flyingBubble.vy;
+                flyingBubble.vx *= -1;
+                sound.playBounce();
             }
 
-            // 頂部牆壁撞擊
-            const topBound = playfield.y + playfield.topPadding + BUBBLE_RADIUS;
-            if (fb.y <= topBound) {
-                fb.y = topBound;
-                snapBubbleToGrid(fb);
+            // 觸碰天花板
+            if (flyingBubble.y <= gameArea.y + 65 + bubbleRadius) {
+                snapFlyingBubbleToGrid();
                 return;
             }
 
-            // 與現有網格泡泡撞擊檢測
-            for (let r = 0; r < GRID_ROWS; r++) {
-                const colsInRow = (r % 2 === 1) ? GRID_COLS - 1 : GRID_COLS;
-                for (let c = 0; c < colsInRow; c++) {
-                    if (grid[r][c]) {
+            // 碰撞檢查：其他泡泡
+            for (let r = 0; r < grid.length; r++) {
+                for (let c = 0; c < GRID_COLS; c++) {
+                    const b = grid[r][c];
+                    if (b && b.active) {
                         const pos = getBubbleCenter(r, c);
-                        const dist = Math.hypot(fb.x - pos.x, fb.y - pos.y);
-                        if (dist < BUBBLE_RADIUS * 1.75) {
-                            snapBubbleToGrid(fb);
+                        const dist = Math.hypot(flyingBubble.x - pos.x, flyingBubble.y - pos.y);
+                        if (dist < bubbleRadius * 1.75) {
+                            snapFlyingBubbleToGrid();
                             return;
                         }
                     }
@@ -489,44 +639,139 @@
             }
         }
 
-        function snapBubbleToGrid(fb) {
-            // 尋找離 fb 最近的空網格位置
+        // 找到最接近的空 Grid 位置
+        function snapFlyingBubbleToGrid() {
+            sound.playSnap();
             let closestSpot = null;
             let minDistance = Infinity;
 
-            for (let r = 0; r < GRID_ROWS; r++) {
-                const colsInRow = (r % 2 === 1) ? GRID_COLS - 1 : GRID_COLS;
-                for (let c = 0; c < colsInRow; c++) {
-                    if (!grid[r][c]) {
+            for (let r = 0; r < grid.length; r++) {
+                const maxC = (r % 2 !== 0) ? GRID_COLS - 1 : GRID_COLS;
+                for (let c = 0; c < maxC; c++) {
+                    if (!grid[r][c] || !grid[r][c].active) {
                         const pos = getBubbleCenter(r, c);
-                        const dist = Math.hypot(fb.x - pos.x, fb.y - pos.y);
+                        const dist = Math.hypot(flyingBubble.x - pos.x, flyingBubble.y - pos.y);
                         if (dist < minDistance) {
                             minDistance = dist;
-                            closestSpot = { r, c };
+                            closestSpot = { row: r, col: c };
                         }
                     }
                 }
             }
 
             if (closestSpot) {
-                const { r, c } = closestSpot;
-                grid[r][c] = fb.type;
-                playSound('stick');
-                currentFlyingBubble = null;
+                const { row, col } = closestSpot;
+                grid[row][col] = {
+                    colorKey: flyingBubble.colorKey,
+                    special: flyingBubble.special,
+                    active: true,
+                    scale: 0.1, // 登場動畫
+                    alpha: 1
+                };
 
-                // 處理特殊泡泡或標準消除檢測
-                if (fb.type.special === 'LASER') {
-                    handleLaserEffect(r, c);
-                } else if (fb.type.special === 'BOMB') {
-                    handleBombEffect(r, c);
-                } else {
-                    checkMatchesAndDrop(r, c);
-                }
+                createImpactParticles(flyingBubble.x, flyingBubble.y, flyingBubble.colorKey);
+
+                const specialType = flyingBubble.special;
+                flyingBubble = null;
+
+                // 處理特殊泡泡或標準消除
+                handleBubbleImpact(row, col, specialType);
+            } else {
+                flyingBubble = null;
             }
         }
 
-        function getNeighbors(r, c) {
-            const isOdd = (r % 2 === 1);
+        // --- 8. MATCHING, FLOATING & SPECIAL EFFECTS ---
+        function handleBubbleImpact(row, col, specialType) {
+            if (specialType === SPECIAL_TYPES.BOMB) {
+                sound.playExplosion();
+                triggerBombEffect(row, col);
+                checkFloatingBubblesAndProcess();
+                return;
+            } else if (specialType === SPECIAL_TYPES.LIGHTNING) {
+                sound.playExplosion();
+                triggerLightningEffect(row);
+                checkFloatingBubblesAndProcess();
+                return;
+            }
+
+            // 一般/彩虹泡泡消除檢查
+            const matched = findConnectedColorMatches(row, col);
+
+            if (matched.length >= 3) {
+                combo++;
+                sound.playCombo(combo);
+                sound.playPop();
+
+                // 算分
+                const baseScore = matched.length * 100;
+                const comboBonus = (combo - 1) * 200;
+                addScore(baseScore + comboBonus);
+
+                // 消除動畫與粒子
+                matched.forEach(spot => {
+                    const pos = getBubbleCenter(spot.row, spot.col);
+                    createPopParticles(pos.x, pos.y, grid[spot.row][spot.col].colorKey);
+                    grid[spot.row][spot.col].active = false;
+                });
+
+                // 重設連續 Miss
+                missCount = 0;
+                cannon.charState = 'happy';
+
+                // 處理懸空泡泡
+                checkFloatingBubblesAndProcess();
+            } else {
+                // 未造成消除
+                combo = 0;
+                missCount++;
+                if (missCount >= MISS_LIMIT) {
+                    missCount = 0;
+                    addNewRowToGrid();
+                }
+            }
+
+            updateHUD();
+            checkGameStates();
+        }
+
+        function findConnectedColorMatches(startRow, startCol) {
+            const startBubble = grid[startRow][startCol];
+            if (!startBubble) return [];
+
+            const targetColor = startBubble.colorKey;
+            const visited = new Set();
+            const matches = [];
+            const queue = [{ row: startRow, col: startCol }];
+
+            visited.add(`${startRow},${startCol}`);
+
+            while (queue.length > 0) {
+                const curr = queue.shift();
+                matches.push(curr);
+
+                const neighbors = getGridNeighbors(curr.row, curr.col);
+                neighbors.forEach(nb => {
+                    const key = `${nb.row},${nb.col}`;
+                    if (!visited.has(key)) {
+                        const nbBubble = grid[nb.row][nb.col];
+                        if (nbBubble && nbBubble.active) {
+                            // 彩虹泡泡匹配任意色
+                            if (nbBubble.colorKey === targetColor ||
+                                nbBubble.special === SPECIAL_TYPES.RAINBOW ||
+                                startBubble.special === SPECIAL_TYPES.RAINBOW) {
+                                visited.add(key);
+                                queue.push(nb);
+                            }
+                        }
+                    }
+                });
+            }
+            return matches;
+        }
+
+        function getGridNeighbors(row, col) {
+            const isOdd = row % 2 !== 0;
             const offsets = isOdd ? [
                 { r: -1, c: 0 }, { r: -1, c: 1 },
                 { r: 0, c: -1 }, { r: 0, c: 1 },
@@ -539,621 +784,742 @@
 
             const neighbors = [];
             offsets.forEach(off => {
-                const nr = r + off.r;
-                const nc = c + off.c;
-                const colsInRow = (nr % 2 === 1) ? GRID_COLS - 1 : GRID_COLS;
-                if (nr >= 0 && nr < GRID_ROWS && nc >= 0 && nc < colsInRow) {
-                    neighbors.push({ r: nr, c: nc });
+                const nr = row + off.r;
+                const nc = col + off.c;
+                const maxC = (nr % 2 !== 0) ? GRID_COLS - 1 : GRID_COLS;
+                if (nr >= 0 && nr < grid.length && nc >= 0 && nc < maxC) {
+                    neighbors.push({ row: nr, col: nc });
                 }
             });
             return neighbors;
         }
 
-        function checkMatchesAndDrop(startR, startC) {
-            const targetType = grid[startR][startC];
-            if (!targetType) return;
+        // 懸空泡泡檢測 (Top Ceiling BFS)
+        function checkFloatingBubblesAndProcess() {
+            const connectedToTop = new Set();
+            const queue = [];
 
-            // BFS 搜尋相同顏色或萬能彩虹泡泡
-            const queue = [{ r: startR, c: startC }];
-            const matched = [];
-            const visited = Array.from({ length: GRID_ROWS }, () => Array(GRID_COLS).fill(false));
-            visited[startR][startC] = true;
+            // 第一列所有的 active 泡泡都是懸掛點
+            for (let c = 0; c < GRID_COLS; c++) {
+                if (grid[0][c] && grid[0][c].active) {
+                    queue.push({ row: 0, col: c });
+                    connectedToTop.add(`0,${c}`);
+                }
+            }
 
             while (queue.length > 0) {
                 const curr = queue.shift();
-                matched.push(curr);
-
-                const neighbors = getNeighbors(curr.r, curr.c);
-                neighbors.forEach(n => {
-                    if (!visited[n.r][n.c] && grid[n.r][n.c]) {
-                        const bType = grid[n.r][n.c];
-                        if (bType.id === targetType.id || bType.special === 'RAINBOW' || targetType.special === 'RAINBOW') {
-                            visited[n.r][n.c] = true;
-                            queue.push(n);
+                const neighbors = getGridNeighbors(curr.row, curr.col);
+                neighbors.forEach(nb => {
+                    const key = `${nb.row},${nb.col}`;
+                    if (!connectedToTop.has(key)) {
+                        const b = grid[nb.row][nb.col];
+                        if (b && b.active) {
+                            connectedToTop.add(key);
+                            queue.push(nb);
                         }
                     }
                 });
             }
 
-            // 若同色相連 >= 3 顆，觸發消除
-            if (matched.length >= 3) {
-                popBubbles(matched);
-                shotsFiredCount = 0; // 消除成功，重置下壓計數器
-            } else {
-                shotsFiredCount++;
-                if (shotsFiredCount >= SHOTS_UNTIL_DROP) {
-                    shotsFiredCount = 0;
-                    dropGridRows();
-                }
-            }
-
-            checkGameOverOrClear();
-        }
-
-        function handleBombEffect(r, c) {
-            const matched = [{ r, c }];
-            const neighbors = getNeighbors(r, c);
-            neighbors.forEach(n => {
-                if (grid[n.r][n.c]) matched.push(n);
-            });
-            popBubbles(matched);
-            shotsFiredCount = 0;
-            checkGameOverOrClear();
-        }
-
-        function handleLaserEffect(r, c) {
-            const matched = [];
-            for (let col = 0; col < GRID_COLS; col++) {
-                if (grid[r][col]) matched.push({ r, c: col });
-            }
-            popBubbles(matched);
-            shotsFiredCount = 0;
-            checkGameOverOrClear();
-        }
-
-        function popBubbles(bubblesToPop) {
-            playSound('pop');
-            let popScore = bubblesToPop.length * 20;
-            addScore(popScore, getBubbleCenter(bubblesToPop[0].r, bubblesToPop[0].c));
-
-            bubblesToPop.forEach(b => {
-                const type = grid[b.r][b.c];
-                const pos = getBubbleCenter(b.r, b.c);
-                createParticles(pos.x, pos.y, type.color);
-                grid[b.r][b.c] = null;
-            });
-
-            // 檢查並掉落懸空泡泡叢
-            dropFloatingClusters();
-        }
-
-        function dropFloatingClusters() {
-            // BFS 標記所有連接到頂層 (Row 0) 的泡泡
-            const visited = Array.from({ length: GRID_ROWS }, () => Array(GRID_COLS).fill(false));
-            const queue = [];
-
-            // 將第 0 行所有存在的泡泡加入佇列
-            for (let c = 0; c < GRID_COLS; c++) {
-                if (grid[0][c]) {
-                    visited[0][c] = true;
-                    queue.push({ r: 0, c });
-                }
-            }
-
-            while (queue.length > 0) {
-                const curr = queue.shift();
-                const neighbors = getNeighbors(curr.r, curr.c);
-                neighbors.forEach(n => {
-                    if (!visited[n.r][n.c] && grid[n.r][n.c]) {
-                        visited[n.r][n.c] = true;
-                        queue.push(n);
-                    }
-                });
-            }
-
-            // 凡是未被 visited 標記的非空泡泡皆為懸空泡泡，全部解鎖物理掉落
+            // 找出所有沒連到頂部的 active 泡泡 -> 掉落
             let dropCount = 0;
-            for (let r = 0; r < GRID_ROWS; r++) {
-                const colsInRow = (r % 2 === 1) ? GRID_COLS - 1 : GRID_COLS;
-                for (let c = 0; c < colsInRow; c++) {
-                    if (grid[r][c] && !visited[r][c]) {
-                        const pos = getBubbleCenter(r, c);
-                        floatingBubbles.push({
-                            x: pos.x,
-                            y: pos.y,
-                            vx: (Math.random() - 0.5) * 6,
-                            vy: Math.random() * -4 - 2,
-                            gravity: 0.4,
-                            type: grid[r][c]
-                        });
-                        grid[r][c] = null;
+            for (let r = 0; r < grid.length; r++) {
+                for (let c = 0; c < GRID_COLS; c++) {
+                    const b = grid[r][c];
+                    if (b && b.active && !connectedToTop.has(`${r},${c}`)) {
+                        b.active = false;
                         dropCount++;
+                        const pos = getBubbleCenter(r, c);
+                        createFallingBubbleEffect(pos.x, pos.y, b.colorKey);
                     }
                 }
             }
 
             if (dropCount > 0) {
-                playSound('drop');
-                const dropScore = Math.pow(2, dropCount) * 50; // 指數級懸空高額獎勵
-                addScore(dropScore, { x: cannon.x, y: playfield.y + playfield.height / 2 });
+                sound.playDrop();
+                addScore(dropCount * 150);
             }
         }
 
-        function dropGridRows() {
-            playSound('warning');
-            screenShakeTime = 15; // 震動回饋
+        function triggerBombEffect(row, col) {
+            const centerPos = getBubbleCenter(row, col);
+            createShockwave(centerPos.x, centerPos.y);
 
-            // 將所有泡泡向下推移一行
-            for (let r = GRID_ROWS - 1; r > 0; r--) {
-                grid[r] = [...grid[r - 1]];
-            }
-
-            // 最頂層生成一列全新泡泡
-            grid[0] = [];
-            const availableColors = COLOR_KEYS.slice(0, Math.min(4 + Math.floor((level - 1) / 2), COLOR_KEYS.length));
-            for (let c = 0; c < GRID_COLS; c++) {
-                const colorKey = availableColors[Math.floor(Math.random() * availableColors.length)];
-                grid[0][c] = BUBBLE_TYPES[colorKey];
-            }
-        }
-
-        function checkGameOverOrClear() {
-            // 檢查防禦線 (例如倒數第 2 行)
-            const deadlineRow = GRID_ROWS - 2;
-            let isGameOver = false;
-
-            for (let c = 0; c < GRID_COLS; c++) {
-                if (grid[deadlineRow][c]) {
-                    isGameOver = true;
-                    break;
-                }
-            }
-
-            if (isGameOver) {
-                triggerGameOver();
-                return;
-            }
-
-            // 檢查是否全部消除清空 (Clear Stage)
-            let hasBubbles = false;
-            for (let r = 0; r < GRID_ROWS; r++) {
+            for (let r = Math.max(0, row - 2); r <= Math.min(grid.length - 1, row + 2); r++) {
                 for (let c = 0; c < GRID_COLS; c++) {
-                    if (grid[r][c]) {
-                        hasBubbles = true;
-                        break;
+                    if (grid[r][c] && grid[r][c].active) {
+                        const pos = getBubbleCenter(r, c);
+                        const dist = Math.hypot(pos.x - centerPos.x, pos.y - centerPos.y);
+                        if (dist <= bubbleRadius * 3.5) {
+                            grid[r][c].active = false;
+                            createPopParticles(pos.x, pos.y, grid[r][c].colorKey);
+                        }
                     }
                 }
             }
+            addScore(800);
+        }
 
-            if (!hasBubbles) {
-                triggerStageClear();
+        function triggerLightningEffect(row) {
+            for (let c = 0; c < GRID_COLS; c++) {
+                if (grid[row][c] && grid[row][c].active) {
+                    grid[row][c].active = false;
+                    const pos = getBubbleCenter(row, c);
+                    createPopParticles(pos.x, pos.y, '#ffffff');
+                }
+            }
+            addScore(600);
+        }
+
+        function addNewRowToGrid() {
+            // 向下搬移全體 1 列
+            for (let r = grid.length - 1; r > 0; r--) {
+                for (let c = 0; c < GRID_COLS; c++) {
+                    grid[r][c] = grid[r - 1][c];
+                }
+            }
+            // 新增第 0 列
+            grid[0] = [];
+            const availableKeys = getAvailableColorsInGrid();
+            for (let c = 0; c < GRID_COLS; c++) {
+                grid[0][c] = {
+                    colorKey: availableKeys[Math.floor(Math.random() * availableKeys.length)],
+                    special: SPECIAL_TYPES.NONE,
+                    active: true,
+                    scale: 1,
+                    alpha: 1
+                };
             }
         }
 
-        function triggerGameOver() {
-            gameState = 'GAMEOVER';
-            playSound('gameover');
-            stopBGM();
-            modalTitle.textContent = "GAME OVER";
-            modalTitle.className = "text-3xl font-black mb-2 text-rose-500 neon-text-pink";
-            modalSubtitle.textContent = "泡泡突破防禦線！再接再厲！";
-            finalScore.textContent = score;
-            statusModal.classList.remove('hidden');
-        }
+        // --- 9. PARTICLE & VISUAL EFFECTS SYSTEM ---
+        let particles = [];
+        let shockwaves = [];
 
-        function triggerStageClear() {
-            gameState = 'CLEAR';
-            playSound('clear');
-            modalTitle.textContent = "STAGE CLEAR!";
-            modalTitle.className = "text-3xl font-black mb-2 text-cyan-400 neon-text-cyan";
-            modalSubtitle.textContent = `太棒了！準備挑戰第 ${level + 1} 關！`;
-            finalScore.textContent = score;
-            statusModal.classList.remove('hidden');
-        }
-
-        function addScore(pts, pos) {
-            score += pts;
-            if (score > highScore) {
-                highScore = score;
-                localStorage.setItem('pb_high_score', highScore.toString());
-            }
-            scoreDisplay.textContent = score;
-            highScoreDisplay.textContent = highScore;
-
-            if (pos) {
-                scoreTexts.push({
-                    x: pos.x,
-                    y: pos.y,
-                    text: `+${pts}`,
-                    alpha: 1.0,
-                    vy: -1.5
-                });
-            }
-        }
-
-        function createParticles(x, y, color) {
+        function createPopParticles(x, y, colorKey) {
+            const color = BUBBLE_COLORS[colorKey] ? BUBBLE_COLORS[colorKey].main : colorKey;
             for (let i = 0; i < 12; i++) {
                 const angle = Math.random() * Math.PI * 2;
-                const speed = Math.random() * 5 + 2;
+                const speed = 2 + Math.random() * 6;
                 particles.push({
                     x, y,
                     vx: Math.cos(angle) * speed,
                     vy: Math.sin(angle) * speed,
-                    radius: Math.random() * 3 + 2,
+                    size: 3 + Math.random() * 5,
                     color: color,
-                    alpha: 1.0,
-                    decay: Math.random() * 0.03 + 0.02
+                    alpha: 1,
+                    life: 1,
+                    decay: 0.02 + Math.random() * 0.03
                 });
             }
         }
 
-        // --- 5. 繪製引擎 ---
-        function render() {
-            // Screen Shake 效果計算
-            ctx.save();
-            if (screenShakeTime > 0) {
-                const offsetX = (Math.random() - 0.5) * 10;
-                const offsetY = (Math.random() - 0.5) * 10;
-                ctx.translate(offsetX, offsetY);
-                screenShakeTime--;
+        function createImpactParticles(x, y, colorKey) {
+            const color = BUBBLE_COLORS[colorKey] ? BUBBLE_COLORS[colorKey].light : '#ffffff';
+            for (let i = 0; i < 6; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 1 + Math.random() * 3;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 2 + Math.random() * 3,
+                    color: color,
+                    alpha: 1,
+                    life: 1,
+                    decay: 0.05
+                });
             }
+        }
 
-            // 清除全域背景
-            ctx.fillStyle = '#090D16';
-            ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-
-            // 繪製動態科幻背景粒子
-            ctx.fillStyle = '#FFFFFF';
-            bgParticles.forEach(p => {
-                p.y += p.speedY;
-                if (p.y < 0) p.y = window.innerHeight;
-                ctx.globalAlpha = p.alpha;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-                ctx.fill();
+        function createFallingBubbleEffect(x, y, colorKey) {
+            const color = BUBBLE_COLORS[colorKey] ? BUBBLE_COLORS[colorKey].main : '#ffffff';
+            particles.push({
+                x, y,
+                vx: (Math.random() - 0.5) * 3,
+                vy: Math.random() * 2 + 2,
+                gravity: 0.3,
+                size: bubbleRadius * 0.8,
+                color: color,
+                alpha: 1,
+                life: 1,
+                decay: 0.015,
+                isFallingBubble: true
             });
-            ctx.globalAlpha = 1.0;
+        }
 
-            // 繪製 Playfield 邊框與霓虹外發光
-            ctx.strokeStyle = 'rgba(6, 182, 212, 0.6)';
-            ctx.lineWidth = 4;
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = '#06B6D4';
-            ctx.strokeRect(playfield.x, playfield.y, playfield.width, playfield.height);
-            ctx.shadowBlur = 0; // 重置 Shadow
+        function createShockwave(x, y) {
+            shockwaves.push({ x, y, radius: 10, maxRadius: bubbleRadius * 4, alpha: 1 });
+        }
 
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-            ctx.fillRect(playfield.x, playfield.y, playfield.width, playfield.height);
-
-            // 繪製預警防線 (Deadline)
-            const deadlineY = playfield.y + playfield.topPadding + (GRID_ROWS - 2) * (BUBBLE_RADIUS * 1.732);
-            ctx.strokeStyle = 'rgba(239, 68, 68, 0.7)';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([8, 6]);
-            ctx.beginPath();
-            ctx.moveTo(playfield.x, deadlineY);
-            ctx.lineTo(playfield.x + playfield.width, deadlineY);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            // 繪製網格泡泡
-            for (let r = 0; r < GRID_ROWS; r++) {
-                const colsInRow = (r % 2 === 1) ? GRID_COLS - 1 : GRID_COLS;
-                for (let c = 0; c < colsInRow; c++) {
-                    if (grid[r][c]) {
-                        const pos = getBubbleCenter(r, c);
-                        drawBubble(pos.x, pos.y, BUBBLE_RADIUS, grid[r][c]);
-                    }
-                }
-            }
-
-            // 繪製瞄準預測線 (Aiming Line with Reflection)
-            if (gameState === 'PLAYING' && !currentFlyingBubble) {
-                drawAimingGuide();
-            }
-
-            // 繪製飛射中的泡泡
-            if (currentFlyingBubble) {
-                drawBubble(currentFlyingBubble.x, currentFlyingBubble.y, BUBBLE_RADIUS, currentFlyingBubble.type);
-            }
-
-            // 繪製懸空掉落中的泡泡
-            for (let i = floatingBubbles.length - 1; i >= 0; i--) {
-                const fb = floatingBubbles[i];
-                fb.x += fb.vx;
-                fb.y += fb.vy;
-                fb.vy += fb.gravity;
-                drawBubble(fb.x, fb.y, BUBBLE_RADIUS, fb.type);
-
-                if (fb.y > playfield.y + playfield.height + 50) {
-                    floatingBubbles.splice(i, 1);
-                }
-            }
-
-            // 繪製底部發射器與待發射泡泡
-            drawCannon();
-
-            // 繪製爆裂粒子
+        function updateParticles() {
             for (let i = particles.length - 1; i >= 0; i--) {
                 const p = particles[i];
                 p.x += p.vx;
                 p.y += p.vy;
-                p.alpha -= p.decay;
-                if (p.alpha <= 0) {
-                    particles.splice(i, 1);
-                    continue;
-                }
-                ctx.globalAlpha = p.alpha;
-                ctx.fillStyle = p.color;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            ctx.globalAlpha = 1.0;
+                if (p.gravity) p.vy += p.gravity;
+                p.life -= p.decay;
+                p.alpha = Math.max(0, p.life);
 
-            // 繪製得分動態文字
-            for (let i = scoreTexts.length - 1; i >= 0; i--) {
-                const st = scoreTexts[i];
-                st.y += st.vy;
-                st.alpha -= 0.02;
-                if (st.alpha <= 0) {
-                    scoreTexts.splice(i, 1);
-                    continue;
-                }
-                ctx.globalAlpha = st.alpha;
-                ctx.fillStyle = '#FBBF24';
-                ctx.font = '900 16px "Zen Maru Gothic"';
-                ctx.fillText(st.text, st.x - 15, st.y);
+                if (p.life <= 0) particles.splice(i, 1);
             }
-            ctx.globalAlpha = 1.0;
 
-            ctx.restore();
-            requestAnimationFrame(render);
+            for (let i = shockwaves.length - 1; i >= 0; i--) {
+                const sw = shockwaves[i];
+                sw.radius += 8;
+                sw.alpha -= 0.04;
+                if (sw.alpha <= 0 || sw.radius >= sw.maxRadius) {
+                    shockwaves.splice(i, 1);
+                }
+            }
         }
 
-        function drawBubble(x, y, radius, type) {
+        // --- 10. RENDER ENGINE (CANVAS DRAWING) ---
+        function render() {
+            ctx.clearRect(0, 0, viewportWidth, viewportHeight);
+
+            // 背景底色與網點/深色霓虹
+            drawBackground();
+
+            // 遊戲區域外框/安全邊界
+            drawGameAreaFrame();
+
+            // 繪製 Grid 中的泡泡
+            drawGridBubbles();
+
+            // 繪製軌跡/飛翔中泡泡
+            drawFlyingBubble();
+
+            // 繪製瞄準線
+            if (gameState === GAME_STATES.PLAYING && !flyingBubble) {
+                drawAimGuide();
+            }
+
+            // 繪製砲台與角色
+            drawCannonAndCharacter();
+
+            // 繪製粒子與特效
+            drawParticlesAndEffects();
+
+            // 繪製危險警告線
+            drawDangerLine();
+        }
+
+        function drawBackground() {
+            const bgGradient = ctx.createLinearGradient(0, 0, 0, viewportHeight);
+            bgGradient.addColorStop(0, '#090d16');
+            bgGradient.addColorStop(0.5, '#0f172a');
+            bgGradient.addColorStop(1, '#050811');
+            ctx.fillStyle = bgGradient;
+            ctx.fillRect(0, 0, viewportWidth, viewportHeight);
+        }
+
+        function drawGameAreaFrame() {
             ctx.save();
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.15)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(gameArea.x, gameArea.y + 60, gameArea.width, gameArea.height - 60);
 
-            // 霓虹外發光
-            ctx.shadowBlur = 8;
-            ctx.shadowColor = type.color;
+            // 頂部天花板裝飾
+            ctx.fillStyle = 'rgba(30, 41, 59, 0.8)';
+            ctx.fillRect(gameArea.x, gameArea.y + 60, gameArea.width, 10);
+            ctx.restore();
+        }
 
-            // 漸層泡泡球體
+        function drawBubble(x, y, radius, colorKey, special = SPECIAL_TYPES.NONE, scale = 1, alpha = 1) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.translate(x, y);
+            ctx.scale(scale, scale);
+
+            const colors = BUBBLE_COLORS[colorKey] || BUBBLE_COLORS.RED;
+
+            // 霓虹發光底影
+            ctx.shadowColor = colors.shadow;
+            ctx.shadowBlur = 10;
+
+            // 泡泡 Radial Gradient (球體立體感)
             const grad = ctx.createRadialGradient(
-                x - radius * 0.3, y - radius * 0.3, radius * 0.1,
-                x, y, radius
+                -radius * 0.3, -radius * 0.3, radius * 0.1,
+                0, 0, radius
             );
-            grad.addColorStop(0, type.light || '#FFF');
-            grad.addColorStop(0.6, type.color);
-            grad.addColorStop(1, type.dark || '#000');
+            grad.addColorStop(0, colors.light);
+            grad.addColorStop(0.6, colors.main);
+            grad.addColorStop(1, colors.dark);
 
             ctx.fillStyle = grad;
             ctx.beginPath();
-            ctx.arc(x, y, radius - 1, 0, Math.PI * 2);
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
             ctx.fill();
 
-            // 特殊泡泡圖示或高光繪製
-            if (type.special) {
-                ctx.fillStyle = '#FFF';
-                ctx.font = '900 12px "Zen Maru Gothic"';
+            // 玻璃高光 (Highlight)
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.beginPath();
+            ctx.arc(-radius * 0.35, -radius * 0.35, radius * 0.25, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 特殊泡泡圖示/效果
+            if (special === SPECIAL_TYPES.RAINBOW) {
+                ctx.fillStyle = '#ffffff';
+                ctx.font = `bold ${radius}px sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                let icon = '★';
-                if (type.special === 'BOMB') icon = '💣';
-                if (type.special === 'RAINBOW') icon = '🌈';
-                if (type.special === 'LASER') icon = '⚡';
-                ctx.fillText(icon, x, y);
-            } else {
-                // 立體白色弧形高光
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.arc(x - radius * 0.2, y - radius * 0.2, radius * 0.5, Math.PI * 1.1, Math.PI * 1.7);
-                ctx.stroke();
+                ctx.fillText('🌈', 0, 2);
+            } else if (special === SPECIAL_TYPES.BOMB) {
+                ctx.fillStyle = '#ffffff';
+                ctx.font = `bold ${radius * 0.9}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('💣', 0, 2);
+            } else if (special === SPECIAL_TYPES.LIGHTNING) {
+                ctx.fillStyle = '#ffffff';
+                ctx.font = `bold ${radius * 0.9}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('⚡', 0, 2);
             }
 
             ctx.restore();
         }
 
-        function drawCannon() {
-            ctx.save();
+        function drawGridBubbles() {
+            const time = Date.now() * 0.003;
+            for (let r = 0; r < grid.length; r++) {
+                for (let c = 0; c < GRID_COLS; c++) {
+                    const b = grid[r][c];
+                    if (b && b.active) {
+                        const pos = getBubbleCenter(r, c);
+                        // 呼吸微動效果
+                        if (b.scale < 1) b.scale = Math.min(1, b.scale + 0.1);
+                        const floatOffset = Math.sin(time + r + c) * 1.2;
+                        drawBubble(pos.x, pos.y + floatOffset, bubbleRadius, b.colorKey, b.special, b.scale, b.alpha);
+                    }
+                }
+            }
+        }
 
-            // 繪製發射器基座
-            ctx.fillStyle = '#1E293B';
-            ctx.strokeStyle = '#06B6D4';
+        function drawFlyingBubble() {
+            if (!flyingBubble) return;
+
+            // 拖尾尾跡
+            flyingBubble.trail.forEach((pt, idx) => {
+                const alpha = (idx + 1) / flyingBubble.trail.length * 0.4;
+                const r = bubbleRadius * (0.5 + 0.5 * (idx / flyingBubble.trail.length));
+                drawBubble(pt.x, pt.y, r, flyingBubble.colorKey, flyingBubble.special, 1, alpha);
+            });
+
+            drawBubble(flyingBubble.x, flyingBubble.y, bubbleRadius, flyingBubble.colorKey, flyingBubble.special);
+        }
+
+        function drawAimGuide() {
+            const path = calculateAimPath();
+            if (path.length < 2) return;
+
+            ctx.save();
+            ctx.strokeStyle = activePowerUp === 'aimGuide' ? 'rgba(250, 204, 21, 0.8)' : 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([8, 6]);
+
+            ctx.beginPath();
+            ctx.moveTo(path[0].x, path[0].y);
+            for (let i = 1; i < path.length; i++) {
+                ctx.lineTo(path[i].x, path[i].y);
+            }
+            ctx.stroke();
+
+            // 終點波紋目標指示
+            const lastPt = path[path.length - 1];
+            ctx.setLineDash([]);
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
+            ctx.beginPath();
+            ctx.arc(lastPt.x, lastPt.y, bubbleRadius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawCannonAndCharacter() {
+            ctx.save();
+            ctx.translate(cannon.x, cannon.y);
+
+            // 1. 繪製可愛小恐龍 (Arcade Character)
+            drawCharacterAvatar(0, 35, cannon.charState);
+
+            // 2. 砲台底座
+            ctx.fillStyle = '#334155';
+            ctx.strokeStyle = '#38bdf8';
             ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.arc(cannon.x, cannon.y, BUBBLE_RADIUS * 1.6, 0, Math.PI * 2);
+            ctx.arc(0, 10, bubbleRadius * 1.6, Math.PI, 0);
             ctx.fill();
             ctx.stroke();
 
-            // 發射管旋轉
-            ctx.translate(cannon.x, cannon.y);
-            ctx.rotate(-cannon.angle + Math.PI / 2);
-            ctx.fillStyle = '#475569';
-            ctx.fillRect(-6, -BUBBLE_RADIUS * 1.8, 12, BUBBLE_RADIUS * 1.5);
-            ctx.restore();
-
-            // 當前待發射泡泡
-            if (currentBubble) {
-                drawBubble(cannon.x, cannon.y, BUBBLE_RADIUS, currentBubble);
-            }
-
-            // 下一個預備泡泡 (Next Bubble)
-            if (nextBubble) {
-                const nextX = playfield.x + 35;
-                const nextY = playfield.y + playfield.height - 30;
-                ctx.fillStyle = 'rgba(255,255,255,0.1)';
-                ctx.fillRect(nextX - 22, nextY - 30, 44, 45);
-                ctx.fillStyle = '#94A3B8';
-                ctx.font = '700 10px "Zen Maru Gothic"';
-                ctx.fillText('NEXT', nextX - 12, nextY - 18);
-                drawBubble(nextX, nextY, BUBBLE_RADIUS * 0.75, nextBubble);
-            }
-
-            ctx.restore();
-        }
-
-        function drawAimingGuide() {
+            // 3. 旋轉砲管 (後退後座力)
             ctx.save();
-            ctx.strokeStyle = 'rgba(6, 182, 212, 0.6)';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([6, 6]);
+            const recoilX = Math.cos(cannon.angle) * (-cannon.recoil);
+            const recoilY = Math.sin(cannon.angle) * (-cannon.recoil);
+            ctx.translate(recoilX, recoilY);
+            ctx.rotate(cannon.angle + Math.PI / 2);
 
-            let currX = cannon.x;
-            let currY = cannon.y;
-            let dirX = Math.cos(cannon.angle);
-            let dirY = -Math.sin(cannon.angle);
+            if (cannon.recoil > 0) cannon.recoil -= 1;
 
-            const leftBound = playfield.x + BUBBLE_RADIUS;
-            const rightBound = playfield.x + playfield.width - BUBBLE_RADIUS;
-
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = '#06b6d4';
+            ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.moveTo(currX, currY);
-
-            // 計算反彈與瞄準線
-            for (let step = 0; step < 600; step += 5) {
-                currX += dirX * 5;
-                currY += dirY * 5;
-
-                if (currX <= leftBound || currX >= rightBound) {
-                    dirX *= -1;
-                    ctx.lineTo(currX, currY);
-                }
-
-                // 碰到頂部牆壁即停止
-                if (currY <= playfield.y + playfield.topPadding + BUBBLE_RADIUS) {
-                    ctx.lineTo(currX, currY);
-                    break;
-                }
-            }
-
+            ctx.roundRect(-12, -bubbleRadius * 2.2, 24, bubbleRadius * 2.2, 6);
+            ctx.fill();
             ctx.stroke();
             ctx.restore();
+
+            // 4. 當前準備發射泡泡
+            if (cannon.currentBubble && !flyingBubble) {
+                const bubbleX = Math.cos(cannon.angle) * bubbleRadius * 1.2;
+                const bubbleY = Math.sin(cannon.angle) * bubbleRadius * 1.2;
+                drawBubble(bubbleX, bubbleY, bubbleRadius, cannon.currentBubble.colorKey, cannon.currentBubble.special);
+            }
+
+            // 5. NEXT 預覽泡泡
+            if (cannon.nextBubble) {
+                ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('NEXT', -bubbleRadius * 2.5, 10);
+                drawBubble(-bubbleRadius * 2.5, -12, bubbleRadius * 0.75, cannon.nextBubble.colorKey, cannon.nextBubble.special);
+            }
+
+            ctx.restore();
         }
 
-        // --- 6. 事件控制與互動 ---
-        function setCannonAngleFromPointer(clientX, clientY) {
+        function drawCharacterAvatar(x, y, state) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            // 恐龍身體
+            ctx.fillStyle = '#22c55e';
+            ctx.beginPath();
+            ctx.arc(0, 0, 18, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 眼睛
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(-6, -4, 5, 0, Math.PI * 2);
+            ctx.arc(6, -4, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(-5, -4, 2, 0, Math.PI * 2);
+            ctx.arc(7, -4, 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 嘴巴依表情變更
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            if (state === 'happy') {
+                ctx.arc(0, 2, 6, 0, Math.PI);
+            } else if (state === 'sad') {
+                ctx.arc(0, 8, 6, Math.PI, 0);
+            } else {
+                ctx.moveTo(-4, 4);
+                ctx.lineTo(4, 4);
+            }
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawParticlesAndEffects() {
+            // 普通與掉落粒子
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                if (p.isFallingBubble) {
+                    drawBubble(p.x, p.y, p.size, p.color, SPECIAL_TYPES.NONE, 1, p.alpha);
+                } else {
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            });
+
+            // 爆炸 Shockwave
+            shockwaves.forEach(sw => {
+                ctx.save();
+                ctx.globalAlpha = sw.alpha;
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            });
+        }
+
+        function drawDangerLine() {
+            const dangerY = cannon.y - bubbleRadius * 2.5;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 4]);
+            ctx.beginPath();
+            ctx.moveTo(gameArea.x, dangerY);
+            ctx.lineTo(gameArea.x + gameArea.width, dangerY);
+            ctx.stroke();
+
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.8)';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.fillText('DANGER LINE', gameArea.x + 10, dangerY - 4);
+            ctx.restore();
+        }
+
+        // --- 11. GAME STATE & WIN/LOSE CHECK ---
+        function addScore(pts) {
+            score += pts;
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('pb_highScore', highScore.toString());
+            }
+        }
+
+        function checkGameStates() {
+            // 檢查勝負
+            let activeBubbleCount = 0;
+            let lowestY = 0;
+
+            for (let r = 0; r < grid.length; r++) {
+                for (let c = 0; c < GRID_COLS; c++) {
+                    if (grid[r][c] && grid[r][c].active) {
+                        activeBubbleCount++;
+                        const pos = getBubbleCenter(r, c);
+                        if (pos.y > lowestY) lowestY = pos.y;
+                    }
+                }
+            }
+
+            const dangerY = cannon.y - bubbleRadius * 2.5;
+
+            // 勝條件：場面無泡泡
+            if (activeBubbleCount === 0) {
+                setGameState(GAME_STATES.LEVEL_CLEAR);
+                return;
+            }
+
+            // 敗條件：泡泡觸及危險線
+            if (lowestY >= dangerY) {
+                setGameState(GAME_STATES.GAME_OVER);
+            }
+        }
+
+        function setGameState(newState) {
+            gameState = newState;
+            const modalContainer = document.getElementById('modal-container');
+            const modalStart = document.getElementById('modal-start');
+            const modalPause = document.getElementById('modal-pause');
+            const modalClear = document.getElementById('modal-clear');
+            const modalGameOver = document.getElementById('modal-gameover');
+
+            // 隱藏全部
+            [modalStart, modalPause, modalClear, modalGameOver].forEach(m => m.classList.add('hidden'));
+
+            if (newState === GAME_STATES.MENU) {
+                modalContainer.classList.remove('hidden');
+                modalStart.classList.remove('hidden');
+                document.getElementById('start-high-score').textContent = highScore;
+            } else if (newState === GAME_STATES.PLAYING) {
+                modalContainer.classList.add('hidden');
+                sound.startBGM();
+            } else if (newState === GAME_STATES.PAUSED) {
+                modalContainer.classList.remove('hidden');
+                modalPause.classList.remove('hidden');
+            } else if (newState === GAME_STATES.LEVEL_CLEAR) {
+                modalContainer.classList.remove('hidden');
+                modalClear.classList.remove('hidden');
+                sound.playWin();
+                cannon.charState = 'happy';
+                
+                document.getElementById('clear-bonus').textContent = '+1000';
+                document.getElementById('clear-combo').textContent = `x${combo}`;
+                document.getElementById('clear-total-score').textContent = score + 1000;
+                addScore(1000);
+            } else if (newState === GAME_STATES.GAME_OVER) {
+                modalContainer.classList.remove('hidden');
+                modalGameOver.classList.remove('hidden');
+                sound.playLose();
+                cannon.charState = 'sad';
+
+                document.getElementById('gameover-score').textContent = score;
+                document.getElementById('gameover-high').textContent = highScore;
+
+                const newHighTag = document.getElementById('gameover-new-high');
+                if (score >= highScore && score > 0) {
+                    newHighTag.classList.remove('hidden');
+                } else {
+                    newHighTag.classList.add('hidden');
+                }
+            }
+            updateHUD();
+        }
+
+        function startNewGame() {
+            score = 0;
+            level = 1;
+            combo = 0;
+            missCount = 0;
+            loadLevelPattern(level);
+            initCannon();
+            setGameState(GAME_STATES.PLAYING);
+        }
+
+        function nextLevel() {
+            level++;
+            combo = 0;
+            missCount = 0;
+            loadLevelPattern(level);
+            initCannon();
+            setGameState(GAME_STATES.PLAYING);
+        }
+
+        function updateHUD() {
+            document.getElementById('hud-level').textContent = level;
+            document.getElementById('hud-score').textContent = score;
+            document.getElementById('hud-high').textContent = highScore;
+            document.getElementById('hud-combo').textContent = `x${combo}`;
+            document.getElementById('hud-miss').textContent = `${missCount}/${MISS_LIMIT}`;
+        }
+
+        // --- 12. INPUT CONTROLLER ---
+        function updateAimAngle(clientX, clientY) {
+            if (gameState !== GAME_STATES.PLAYING) return;
             const rect = canvas.getBoundingClientRect();
             const mouseX = clientX - rect.left;
             const mouseY = clientY - rect.top;
 
-            const dx = mouseX - cannon.x;
-            const dy = cannon.y - mouseY; // Canvas Y 軸向下
+            let angle = Math.atan2(mouseY - cannon.y, mouseX - cannon.x);
 
-            let angle = Math.atan2(dy, dx);
-            // 限制發射角度在左右 15° 至 165° 之間
-            const minAngle = 15 * (Math.PI / 180);
-            const maxAngle = 165 * (Math.PI / 180);
-            if (angle < minAngle) angle = minAngle;
-            if (angle > maxAngle) angle = maxAngle;
+            // 角度安全限制 (15° ～ 165°)
+            const minAngle = -Math.PI + 0.26; // 約 -165 deg
+            const maxAngle = -0.26;           // 約 -15 deg
+
+            if (angle > 0) {
+                angle = (mouseX < cannon.x) ? minAngle : maxAngle;
+            } else {
+                angle = Math.max(minAngle, Math.min(maxAngle, angle));
+            }
 
             cannon.angle = angle;
         }
 
-        // 滑鼠與觸控監聽
-        window.addEventListener('mousemove', (e) => {
-            if (gameState === 'PLAYING') {
-                setCannonAngleFromPointer(e.clientX, e.clientY);
-            }
-        });
+        function bindInputs() {
+            // Pointer & Touch Handling
+            window.addEventListener('pointermove', (e) => {
+                updateAimAngle(e.clientX, e.clientY);
+            });
 
-        window.addEventListener('touchmove', (e) => {
-            if (gameState === 'PLAYING' && e.touches.length > 0) {
-                setCannonAngleFromPointer(e.touches[0].clientX, e.touches[0].clientY);
-            }
-        }, { passive: false });
+            window.addEventListener('pointerdown', (e) => {
+                sound.resume();
+                if (gameState === GAME_STATES.PLAYING && e.clientY > 60) {
+                    updateAimAngle(e.clientX, e.clientY);
+                    shootBubble();
+                }
+            });
 
-        window.addEventListener('mouseup', () => {
-            if (gameState === 'PLAYING') shootBubble();
-        });
+            // Keyboard Controls
+            const keys = {};
+            window.addEventListener('keydown', (e) => {
+                sound.resume();
+                keys[e.code] = true;
 
-        window.addEventListener('touchend', () => {
-            if (gameState === 'PLAYING') shootBubble();
-        });
+                if (e.code === 'KeyP' || e.code === 'Escape') {
+                    if (gameState === GAME_STATES.PLAYING) setGameState(GAME_STATES.PAUSED);
+                    else if (gameState === GAME_STATES.PAUSED) setGameState(GAME_STATES.PLAYING);
+                }
 
-        // 鍵盤操控支援
-        window.addEventListener('keydown', (e) => {
-            if (gameState !== 'PLAYING') return;
+                if (e.code === 'Space' && gameState === GAME_STATES.PLAYING) {
+                    shootBubble();
+                }
+            });
 
-            if (e.key === 'ArrowLeft' || e.key === 'a') {
-                cannon.angle = Math.min(cannon.angle + 0.05, 165 * (Math.PI / 180));
-            } else if (e.key === 'ArrowRight' || e.key === 'd') {
-                cannon.angle = Math.max(cannon.angle - 0.05, 15 * (Math.PI / 180));
-            } else if (e.key === ' ' || e.key === 'Spacebar') {
-                shootBubble();
-            }
-        });
+            window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 
-        // 按鈕與 Audio 解鎖綁定
-        function handleStartGame() {
-            initAudio();
-            startBGM();
-            score = 0;
-            level = 1;
-            scoreDisplay.textContent = score;
-            levelDisplay.textContent = level;
-            highScoreDisplay.textContent = highScore;
+            // 鍵盤持續調整砲台角度
+            setInterval(() => {
+                if (gameState !== GAME_STATES.PLAYING) return;
+                const step = 0.04;
+                if (keys['ArrowLeft'] || keys['KeyA']) {
+                    cannon.angle = Math.max(-Math.PI + 0.26, cannon.angle - step);
+                }
+                if (keys['ArrowRight'] || keys['KeyD']) {
+                    cannon.angle = Math.min(-0.26, cannon.angle + step);
+                }
+            }, 16);
 
-            initGrid();
-            currentBubble = null;
-            nextBubble = null;
-            prepareNextBubbles();
+            // RWD Resizing
+            window.addEventListener('resize', resizeCanvas);
 
-            gameState = 'PLAYING';
-            startModal.classList.add('hidden');
-            statusModal.classList.add('hidden');
+            // UI Button Bindings
+            document.getElementById('btn-start-game').addEventListener('click', () => { sound.resume(); startNewGame(); });
+            document.getElementById('btn-resume').addEventListener('click', () => setGameState(GAME_STATES.PLAYING));
+            document.getElementById('btn-pause-restart').addEventListener('click', () => startNewGame());
+            document.getElementById('btn-next-level').addEventListener('click', () => nextLevel());
+            document.getElementById('btn-gameover-restart').addEventListener('click', () => startNewGame());
+
+            document.getElementById('btn-pause').addEventListener('click', () => {
+                if (gameState === GAME_STATES.PLAYING) setGameState(GAME_STATES.PAUSED);
+            });
+            document.getElementById('btn-restart').addEventListener('click', () => startNewGame());
+
+            // BGM / SFX 切換鈕
+            const btnBGM = document.getElementById('btn-bgm');
+            const btnSFX = document.getElementById('btn-sfx');
+
+            btnBGM.addEventListener('click', () => {
+                sound.bgmEnabled = !sound.bgmEnabled;
+                localStorage.setItem('pb_bgm', sound.bgmEnabled.toString());
+                btnBGM.textContent = sound.bgmEnabled ? '🎵 ON' : '🎵 OFF';
+                sound.setBGMVolume(sound.bgmEnabled ? 0.15 : 0);
+            });
+
+            btnSFX.addEventListener('click', () => {
+                sound.sfxEnabled = !sound.sfxEnabled;
+                localStorage.setItem('pb_sfx', sound.sfxEnabled.toString());
+                btnSFX.textContent = sound.sfxEnabled ? '🔊 ON' : '🔊 OFF';
+                sound.setSFXVolume(sound.sfxEnabled ? 0.3 : 0);
+            });
+
+            btnBGM.textContent = sound.bgmEnabled ? '🎵 ON' : '🎵 OFF';
+            btnSFX.textContent = sound.sfxEnabled ? '🔊 ON' : '🔊 OFF';
         }
 
-        function handleNextStageOrRetry() {
-            initAudio();
-            if (gameState === 'CLEAR') {
-                level++;
-                levelDisplay.textContent = level;
-                initGrid();
-                currentBubble = null;
-                nextBubble = null;
-                prepareNextBubbles();
-                gameState = 'PLAYING';
-                statusModal.classList.add('hidden');
-                startBGM();
-            } else {
-                handleStartGame();
+        // --- 13. MAIN GAME LOOP ---
+        function gameLoop(timestamp) {
+            if (gameState === GAME_STATES.PLAYING) {
+                updateFlyingBubble();
+                updateParticles();
             }
+
+            render();
+            requestAnimationFrame(gameLoop);
         }
 
-        startBtn.addEventListener('click', handleStartGame);
-        modalActionBtn.addEventListener('click', handleNextStageOrRetry);
-        restartBtn.addEventListener('click', () => {
-            if (confirm("確定要重新開始遊戲嗎？")) {
-                handleStartGame();
-            }
-        });
+        // --- 14. INITIALIZATION ---
+        function init() {
+            sound.init();
+            resizeCanvas();
+            initCannon();
+            bindInputs();
+            setGameState(GAME_STATES.MENU);
+            requestAnimationFrame(gameLoop);
+        }
 
-        // 音樂與音效開關控制
-        bgmBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            bgmEnabled = !bgmEnabled;
-            localStorage.setItem('pb_bgm', bgmEnabled.toString());
-            bgmBtn.textContent = bgmEnabled ? '🎵 BGM ON' : '🎵 BGM OFF';
-            if (bgmEnabled) startBGM();
-            else stopBGM();
-        });
-
-        sfxBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            sfxEnabled = !sfxEnabled;
-            localStorage.setItem('pb_sfx', sfxEnabled.toString());
-            sfxBtn.textContent = sfxEnabled ? '🔊 SFX ON' : '🔇 SFX OFF';
-        });
-
-        // 初始化狀態與啟動繪製迴圈
-        bgmBtn.textContent = bgmEnabled ? '🎵 BGM ON' : '🎵 BGM OFF';
-        sfxBtn.textContent = sfxEnabled ? '🔊 SFX ON' : '🔇 SFX OFF';
-        highScoreDisplay.textContent = highScore;
-
-        resizeCanvas();
-        requestAnimationFrame(render);
+        window.addEventListener('DOMContentLoaded', init);
+    })();
     </script>
 </body>
 </html>
