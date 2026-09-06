@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>泡泡龍大作戰 - Puzzle Bobble Arcade</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #090D16;
+            font-family: 'Zen Maru Gothic', sans-serif;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        .neon-text-cyan { text-shadow: 0 0 8px rgba(6, 182, 212, 0.8); }
+        .neon-text-pink { text-shadow: 0 0 8px rgba(236, 72, 153, 0.8); }
+        .neon-text-yellow { text-shadow: 0 0 8px rgba(234, 179, 8, 0.8); }
+    </style>
+</head>
+<body class="relative flex items-center justify-center min-h-screen text-white">
+
+    <canvas id="gameCanvas" class="absolute inset-0 w-full h-full z-0"></canvas>
+
+    <header class="fixed top-3 left-1/2 -translate-x-1/2 z-10 w-[95%] max-w-2xl px-4 py-2 rounded-2xl glass-panel flex items-center justify-between text-xs md:text-sm">
+        <div class="flex items-center space-x-3">
+            <div class="flex flex-col">
+                <span class="text-gray-400 text-[10px]">STAGE</span>
+                <span id="levelDisplay" class="font-black text-cyan-400 text-base neon-text-cyan">1</span>
+            </div>
+            <div class="flex flex-col">
+                <span class="text-gray-400 text-[10px]">SCORE</span>
+                <span id="scoreDisplay" class="font-black text-yellow-400 text-base neon-text-yellow">0</span>
+            </div>
+            <div class="flex flex-col hidden sm:flex">
+                <span class="text-gray-400 text-[10px]">HIGH</span>
+                <span id="highScoreDisplay" class="font-black text-pink-400 text-base neon-text-pink">0</span>
+            </div>
+        </div>
+        
+        <div class="flex items-center space-x-2">
+            <button id="bgmBtn" class="px-2.5 py-1.5 rounded-xl glass-panel hover:bg-white/10 transition active:scale-95 text-xs font-bold">🎵 BGM ON</button>
+            <button id="sfxBtn" class="px-2.5 py-1.5 rounded-xl glass-panel hover:bg-white/10 transition active:scale-95 text-xs font-bold">🔊 SFX ON</button>
+            <button id="restartBtn" class="px-2.5 py-1.5 rounded-xl glass-panel hover:bg-white/10 transition active:scale-95 text-xs font-bold bg-rose-500/20 text-rose-300 border-rose-500/30">🔄</button>
+        </div>
+    </header>
+
+    <div id="startModal" class="fixed inset-0 z-20 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+        <div class="glass-panel p-8 rounded-3xl max-w-md w-full text-center flex flex-col items-center border border-cyan-500/30">
+            <h1 class="text-4xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-pink-500 to-yellow-400 animate-pulse">泡泡龍大作戰</h1>
+            <p class="text-gray-300 text-sm mb-6">CLASSIC BUBBLE SHOOTER ARCADE</p>
+            <div class="text-left text-xs text-gray-300 space-y-2 mb-6 w-full glass-panel p-4 rounded-2xl bg-black/20">
+                <p>🎯 <b>瞄準與發射：</b> 滑鼠/手指滑動瞄準，放開或按空白鍵發射。</p>
+                <p>💥 <b>消除機制：</b> 連接 3 個或以上同色泡泡即可消除。</p>
+                <p>🎈 <b>懸空掉落：</b> 切斷頂部支撐可使懸空泡泡掉落獲得高分！</p>
+                <p>⚠️ <b>警示防線：</b> 發射多次未消除陣列將下壓，越過紅線即失敗。</p>
+            </div>
+            <button id="startBtn" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-black text-lg shadow-lg shadow-cyan-500/30 transition transform hover:scale-105 active:scale-95">開始遊戲</button>
+        </div>
+    </div>
+
+    <div id="statusModal" class="fixed inset-0 z-20 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md hidden">
+        <div class="glass-panel p-8 rounded-3xl max-w-md w-full text-center flex flex-col items-center">
+            <h2 id="modalTitle" class="text-3xl font-black mb-2 text-pink-500 neon-text-pink">GAME OVER</h2>
+            <p id="modalSubtitle" class="text-gray-300 text-sm mb-4">泡泡越過防範警示線！</p>
+            <div class="text-center mb-6">
+                <span class="text-xs text-gray-400 block">最終得分</span>
+                <span id="finalScore" class="text-4xl font-black text-yellow-400 neon-text-yellow">0</span>
+            </div>
+            <button id="modalActionBtn" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-400 hover:to-rose-500 text-white font-black text-lg shadow-lg shadow-pink-500/30 transition transform hover:scale-105 active:scale-95">再試一次</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. 全域變數與宣告 ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI 元素
+        const levelDisplay = document.getElementById('levelDisplay');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const highScoreDisplay = document.getElementById('highScoreDisplay');
+        const bgmBtn = document.getElementById('bgmBtn');
+        const sfxBtn = document.getElementById('sfxBtn');
+        const restartBtn = document.getElementById('restartBtn');
+        const startModal = document.getElementById('startModal');
+        const startBtn = document.getElementById('startBtn');
+        const statusModal = document.getElementById('statusModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalSubtitle = document.getElementById('modalSubtitle');
+        const finalScore = document.getElementById('finalScore');
+        const modalActionBtn = document.getElementById('modalActionBtn');
+
+        // 遊戲狀態
+        let gameState = 'START'; // START, PLAYING, GAMEOVER, CLEAR
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('pb_high_score') || '0');
+        let level = 1;
+        let bgmEnabled = localStorage.getItem('pb_bgm') !== 'false';
+        let sfxEnabled = localStorage.getItem('pb_sfx') !== 'false';
+
+        // 螢幕與 DPI 適配
+        let dpr = window.devicePixelRatio || 1;
+        let playfield = { x: 0, y: 0, width: 0, height: 0, topPadding: 80 };
+        let screenShakeTime = 0;
+
+        // 網格與泡泡參數
+        const GRID_ROWS = 12;
+        const GRID_COLS = 8;
+        let BUBBLE_RADIUS = 20;
+        let grid = []; // GRID_ROWS x GRID_COLS
+
+        // 泡泡色彩定義
+        const BUBBLE_TYPES = {
+            RED: { id: 'RED', color: '#EF4444', light: '#FCA5A5', dark: '#991B1B' },
+            BLUE: { id: 'BLUE', color: '#3B82F6', light: '#93C5FD', dark: '#1E40AF' },
+            GREEN: { id: 'GREEN', color: '#10B981', light: '#6EE7B7', dark: '#065F46' },
+            YELLOW: { id: 'YELLOW', color: '#F59E0B', light: '#FDE68A', dark: '#92400E' },
+            PURPLE: { id: 'PURPLE', color: '#8B5CF6', light: '#C4B5FD', dark: '#5B21B6' },
+            PINK: { id: 'PINK', color: '#EC4899', light: '#FBCFE8', dark: '#9D174D' },
+            // 特殊泡泡
+            BOMB: { id: 'BOMB', color: '#374151', light: '#9CA3AF', dark: '#111827', special: 'BOMB' },
+            RAINBOW: { id: 'RAINBOW', color: '#F43F5E', light: '#FFFFFF', dark: '#881337', special: 'RAINBOW' },
+            LASER: { id: 'LASER', color: '#06B6D4', light: '#CFFAFE', dark: '#164E63', special: 'LASER' }
+        };
+        const COLOR_KEYS = ['RED', 'BLUE', 'GREEN', 'YELLOW', 'PURPLE', 'PINK'];
+
+        // 發射器與當前/下一個泡泡
+        let cannon = { x: 0, y: 0, angle: Math.PI / 2 }; // angle: 0 (Right), Math.PI/2 (Up), Math.PI (Left)
+        let currentBubble = null;
+        let nextBubble = null;
+        let currentSpecial = null;
+        let currentFlyingBubble = null;
+        let shotsFiredCount = 0;
+        const SHOTS_UNTIL_DROP = 5;
+
+        // 特效與粒子
+        let particles = [];
+        let floatingBubbles = []; // 懸空掉落掉出畫面的泡泡
+        let scoreTexts = [];
+        let bgParticles = [];
+
+        // --- 2. Web Audio API 音聲引擎 ---
+        let audioCtx = null;
+        let bgmOsc1 = null, bgmOsc2 = null, bgmGain = null;
+        let bgmInterval = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type) {
+            if (!sfxEnabled || !audioCtx) return;
+            const now = audioCtx.currentTime;
+
+            if (type === 'shoot') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(700, now + 0.1);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'bounce') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(400, now);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            } else if (type === 'stick') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(200, now);
+                osc.frequency.exponentialRampToValueAtTime(120, now + 0.08);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            } else if (type === 'pop') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, now);
+                osc.frequency.exponentialRampToValueAtTime(1200, now + 0.12);
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.12);
+            } else if (type === 'drop') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(60, now + 0.25);
+                gain.gain.setValueAtTime(0.5, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            } else if (type === 'warning') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            } else if (type === 'clear') {
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+                    gain.gain.setValueAtTime(0.3, now + idx * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.25);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now + idx * 0.1);
+                    osc.stop(now + idx * 0.1 + 0.25);
+                });
+            } else if (type === 'gameover') {
+                const notes = [300, 260, 220, 150];
+                notes.forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.15);
+                    gain.gain.setValueAtTime(0.3, now + idx * 0.15);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.15 + 0.3);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now + idx * 0.15);
+                    osc.stop(now + idx * 0.15 + 0.3);
+                });
+            }
+        }
+
+        function startBGM() {
+            if (!bgmEnabled || !audioCtx) return;
+            stopBGM();
+
+            bgmGain = audioCtx.createGain();
+            bgmGain.gain.value = 0.08;
+            bgmGain.connect(audioCtx.destination);
+
+            const notes = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63, 293.66, 349.23];
+            let noteIdx = 0;
+
+            bgmInterval = setInterval(() => {
+                if (!bgmEnabled || !audioCtx) return;
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(notes[noteIdx], now);
+                
+                const noteGain = audioCtx.createGain();
+                noteGain.gain.setValueAtTime(0.05, now);
+                noteGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+                
+                osc.connect(noteGain);
+                noteGain.connect(bgmGain);
+                
+                osc.start(now);
+                osc.stop(now + 0.2);
+
+                noteIdx = (noteIdx + 1) % notes.length;
+            }, 220);
+        }
+
+        function stopBGM() {
+            if (bgmInterval) clearInterval(bgmInterval);
+            bgmInterval = null;
+        }
+
+        // --- 3. 初始化與尺寸適配 ---
+        function resizeCanvas() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.scale(dpr, dpr);
+
+            // 計算街機縱向面板區域
+            const maxPlayfieldWidth = Math.min(width * 0.92, 480);
+            const aspectHeight = maxPlayfieldWidth * 1.6;
+            playfield.width = maxPlayfieldWidth;
+            playfield.height = Math.min(height * 0.88, aspectHeight);
+            playfield.x = (width - playfield.width) / 2;
+            playfield.y = Math.max(70, (height - playfield.height) / 2);
+
+            // 計算泡泡半徑 (依據網格與 Playfield 寬度)
+            BUBBLE_RADIUS = playfield.width / (GRID_COLS + 0.5) / 2;
+
+            // 更新發射器位置
+            cannon.x = playfield.x + playfield.width / 2;
+            cannon.y = playfield.y + playfield.height - BUBBLE_RADIUS * 2;
+
+            // 背景星空/粒子
+            initBgParticles();
+        }
+
+        function initBgParticles() {
+            bgParticles = [];
+            for (let i = 0; i < 40; i++) {
+                bgParticles.push({
+                    x: Math.random() * window.innerWidth,
+                    y: Math.random() * window.innerHeight,
+                    radius: Math.random() * 2 + 1,
+                    alpha: Math.random() * 0.8 + 0.2,
+                    speedY: Math.random() * -0.3 - 0.1
+                });
+            }
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- 4. 遊戲核心邏輯 ---
+        function initGrid() {
+            grid = [];
+            for (let r = 0; r < GRID_ROWS; r++) {
+                grid[r] = [];
+                for (let c = 0; c < GRID_COLS; c++) {
+                    grid[r][c] = null;
+                }
+            }
+            generateLevelPattern();
+        }
+
+        function generateLevelPattern() {
+            // 根據關卡產生不同顏色的泡泡圖案
+            const availableColors = COLOR_KEYS.slice(0, Math.min(4 + Math.floor((level - 1) / 2), COLOR_KEYS.length));
+            const fillRows = Math.min(3 + Math.floor(level / 2), 6);
+
+            for (let r = 0; r < fillRows; r++) {
+                const colsInRow = (r % 2 === 1) ? GRID_COLS - 1 : GRID_COLS;
+                for (let c = 0; c < colsInRow; c++) {
+                    // 有低機率出現特殊泡泡
+                    const rand = Math.random();
+                    let type = null;
+                    if (rand < 0.03) type = BUBBLE_TYPES.BOMB;
+                    else if (rand < 0.06) type = BUBBLE_TYPES.RAINBOW;
+                    else if (rand < 0.08) type = BUBBLE_TYPES.LASER;
+                    else {
+                        const colorKey = availableColors[Math.floor(Math.random() * availableColors.length)];
+                        type = BUBBLE_TYPES[colorKey];
+                    }
+                    grid[r][c] = type;
+                }
+            }
+        }
+
+        function getBubbleCenter(row, col) {
+            const rowIndent = (row % 2 === 1) ? BUBBLE_RADIUS : 0;
+            const x = playfield.x + BUBBLE_RADIUS + col * (BUBBLE_RADIUS * 2) + rowIndent;
+            const y = playfield.y + playfield.topPadding + BUBBLE_RADIUS + row * (BUBBLE_RADIUS * 1.732); // sqrt(3) ~ 1.732
+            return { x, y };
+        }
+
+        function getRandomBubbleType() {
+            // 優先從畫面上已存在的顏色中隨機抽取，保持可解性
+            const activeColors = new Set();
+            for (let r = 0; r < GRID_ROWS; r++) {
+                for (let c = 0; c < GRID_COLS; c++) {
+                    if (grid[r][c] && !grid[r][c].special) {
+                        activeColors.add(grid[r][c].id);
+                    }
+                }
+            }
+            const activeArr = Array.from(activeColors);
+            if (activeArr.length > 0) {
+                const picked = activeArr[Math.floor(Math.random() * activeArr.length)];
+                return BUBBLE_TYPES[picked];
+            }
+            return BUBBLE_TYPES[COLOR_KEYS[Math.floor(Math.random() * COLOR_KEYS.length)]];
+        }
+
+        function prepareNextBubbles() {
+            if (!currentBubble) {
+                currentBubble = nextBubble || getRandomBubbleType();
+                nextBubble = getRandomBubbleType();
+            }
+        }
+
+        function shootBubble() {
+            if (currentFlyingBubble || gameState !== 'PLAYING') return;
+
+            const speed = 18;
+            const vx = Math.cos(cannon.angle) * speed;
+            const vy = -Math.sin(cannon.angle) * speed;
+
+            currentFlyingBubble = {
+                x: cannon.x,
+                y: cannon.y,
+                vx: vx,
+                vy: vy,
+                type: currentBubble
+            };
+
+            currentBubble = null;
+            prepareNextBubbles();
+            playSound('shoot');
+        }
+
+        function updateFlyingBubble() {
+            if (!currentFlyingBubble) return;
+
+            const fb = currentFlyingBubble;
+            fb.x += fb.vx;
+            fb.y += fb.vy;
+
+            // 左右兩側牆壁反彈
+            const leftBound = playfield.x + BUBBLE_RADIUS;
+            const rightBound = playfield.x + playfield.width - BUBBLE_RADIUS;
+
+            if (fb.x <= leftBound) {
+                fb.x = leftBound;
+                fb.vx *= -1;
+                playSound('bounce');
+            } else if (fb.x >= rightBound) {
+                fb.x = rightBound;
+                fb.vx *= -1;
+                playSound('bounce');
+            }
+
+            // 頂部牆壁撞擊
+            const topBound = playfield.y + playfield.topPadding + BUBBLE_RADIUS;
+            if (fb.y <= topBound) {
+                fb.y = topBound;
+                snapBubbleToGrid(fb);
+                return;
+            }
+
+            // 與現有網格泡泡撞擊檢測
+            for (let r = 0; r < GRID_ROWS; r++) {
+                const colsInRow = (r % 2 === 1) ? GRID_COLS - 1 : GRID_COLS;
+                for (let c = 0; c < colsInRow; c++) {
+                    if (grid[r][c]) {
+                        const pos = getBubbleCenter(r, c);
+                        const dist = Math.hypot(fb.x - pos.x, fb.y - pos.y);
+                        if (dist < BUBBLE_RADIUS * 1.75) {
+                            snapBubbleToGrid(fb);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        function snapBubbleToGrid(fb) {
+            // 尋找離 fb 最近的空網格位置
+            let closestSpot = null;
+            let minDistance = Infinity;
+
+            for (let r = 0; r < GRID_ROWS; r++) {
+                const colsInRow = (r % 2 === 1) ? GRID_COLS - 1 : GRID_COLS;
+                for (let c = 0; c < colsInRow; c++) {
+                    if (!grid[r][c]) {
+                        const pos = getBubbleCenter(r, c);
+                        const dist = Math.hypot(fb.x - pos.x, fb.y - pos.y);
+                        if (dist < minDistance) {
+                            minDistance = dist;
+                            closestSpot = { r, c };
+                        }
+                    }
+                }
+            }
+
+            if (closestSpot) {
+                const { r, c } = closestSpot;
+                grid[r][c] = fb.type;
+                playSound('stick');
+                currentFlyingBubble = null;
+
+                // 處理特殊泡泡或標準消除檢測
+                if (fb.type.special === 'LASER') {
+                    handleLaserEffect(r, c);
+                } else if (fb.type.special === 'BOMB') {
+                    handleBombEffect(r, c);
+                } else {
+                    checkMatchesAndDrop(r, c);
+                }
+            }
+        }
+
+        function getNeighbors(r, c) {
+            const isOdd = (r % 2 === 1);
+            const offsets = isOdd ? [
+                { r: -1, c: 0 }, { r: -1, c: 1 },
+                { r: 0, c: -1 }, { r: 0, c: 1 },
+                { r: 1, c: 0 }, { r: 1, c: 1 }
+            ] : [
+                { r: -1, c: -1 }, { r: -1, c: 0 },
+                { r: 0, c: -1 }, { r: 0, c: 1 },
+                { r: 1, c: -1 }, { r: 1, c: 0 }
+            ];
+
+            const neighbors = [];
+            offsets.forEach(off => {
+                const nr = r + off.r;
+                const nc = c + off.c;
+                const colsInRow = (nr % 2 === 1) ? GRID_COLS - 1 : GRID_COLS;
+                if (nr >= 0 && nr < GRID_ROWS && nc >= 0 && nc < colsInRow) {
+                    neighbors.push({ r: nr, c: nc });
+                }
+            });
+            return neighbors;
+        }
+
+        function checkMatchesAndDrop(startR, startC) {
+            const targetType = grid[startR][startC];
+            if (!targetType) return;
+
+            // BFS 搜尋相同顏色或萬能彩虹泡泡
+            const queue = [{ r: startR, c: startC }];
+            const matched = [];
+            const visited = Array.from({ length: GRID_ROWS }, () => Array(GRID_COLS).fill(false));
+            visited[startR][startC] = true;
+
+            while (queue.length > 0) {
+                const curr = queue.shift();
+                matched.push(curr);
+
+                const neighbors = getNeighbors(curr.r, curr.c);
+                neighbors.forEach(n => {
+                    if (!visited[n.r][n.c] && grid[n.r][n.c]) {
+                        const bType = grid[n.r][n.c];
+                        if (bType.id === targetType.id || bType.special === 'RAINBOW' || targetType.special === 'RAINBOW') {
+                            visited[n.r][n.c] = true;
+                            queue.push(n);
+                        }
+                    }
+                });
+            }
+
+            // 若同色相連 >= 3 顆，觸發消除
+            if (matched.length >= 3) {
+                popBubbles(matched);
+                shotsFiredCount = 0; // 消除成功，重置下壓計數器
+            } else {
+                shotsFiredCount++;
+                if (shotsFiredCount >= SHOTS_UNTIL_DROP) {
+                    shotsFiredCount = 0;
+                    dropGridRows();
+                }
+            }
+
+            checkGameOverOrClear();
+        }
+
+        function handleBombEffect(r, c) {
+            const matched = [{ r, c }];
+            const neighbors = getNeighbors(r, c);
+            neighbors.forEach(n => {
+                if (grid[n.r][n.c]) matched.push(n);
+            });
+            popBubbles(matched);
+            shotsFiredCount = 0;
+            checkGameOverOrClear();
+        }
+
+        function handleLaserEffect(r, c) {
+            const matched = [];
+            for (let col = 0; col < GRID_COLS; col++) {
+                if (grid[r][col]) matched.push({ r, c: col });
+            }
+            popBubbles(matched);
+            shotsFiredCount = 0;
+            checkGameOverOrClear();
+        }
+
+        function popBubbles(bubblesToPop) {
+            playSound('pop');
+            let popScore = bubblesToPop.length * 20;
+            addScore(popScore, getBubbleCenter(bubblesToPop[0].r, bubblesToPop[0].c));
+
+            bubblesToPop.forEach(b => {
+                const type = grid[b.r][b.c];
+                const pos = getBubbleCenter(b.r, b.c);
+                createParticles(pos.x, pos.y, type.color);
+                grid[b.r][b.c] = null;
+            });
+
+            // 檢查並掉落懸空泡泡叢
+            dropFloatingClusters();
+        }
+
+        function dropFloatingClusters() {
+            // BFS 標記所有連接到頂層 (Row 0) 的泡泡
+            const visited = Array.from({ length: GRID_ROWS }, () => Array(GRID_COLS).fill(false));
+            const queue = [];
+
+            // 將第 0 行所有存在的泡泡加入佇列
+            for (let c = 0; c < GRID_COLS; c++) {
+                if (grid[0][c]) {
+                    visited[0][c] = true;
+                    queue.push({ r: 0, c });
+                }
+            }
+
+            while (queue.length > 0) {
+                const curr = queue.shift();
+                const neighbors = getNeighbors(curr.r, curr.c);
+                neighbors.forEach(n => {
+                    if (!visited[n.r][n.c] && grid[n.r][n.c]) {
+                        visited[n.r][n.c] = true;
+                        queue.push(n);
+                    }
+                });
+            }
+
+            // 凡是未被 visited 標記的非空泡泡皆為懸空泡泡，全部解鎖物理掉落
+            let dropCount = 0;
+            for (let r = 0; r < GRID_ROWS; r++) {
+                const colsInRow = (r % 2 === 1) ? GRID_COLS - 1 : GRID_COLS;
+                for (let c = 0; c < colsInRow; c++) {
+                    if (grid[r][c] && !visited[r][c]) {
+                        const pos = getBubbleCenter(r, c);
+                        floatingBubbles.push({
+                            x: pos.x,
+                            y: pos.y,
+                            vx: (Math.random() - 0.5) * 6,
+                            vy: Math.random() * -4 - 2,
+                            gravity: 0.4,
+                            type: grid[r][c]
+                        });
+                        grid[r][c] = null;
+                        dropCount++;
+                    }
+                }
+            }
+
+            if (dropCount > 0) {
+                playSound('drop');
+                const dropScore = Math.pow(2, dropCount) * 50; // 指數級懸空高額獎勵
+                addScore(dropScore, { x: cannon.x, y: playfield.y + playfield.height / 2 });
+            }
+        }
+
+        function dropGridRows() {
+            playSound('warning');
+            screenShakeTime = 15; // 震動回饋
+
+            // 將所有泡泡向下推移一行
+            for (let r = GRID_ROWS - 1; r > 0; r--) {
+                grid[r] = [...grid[r - 1]];
+            }
+
+            // 最頂層生成一列全新泡泡
+            grid[0] = [];
+            const availableColors = COLOR_KEYS.slice(0, Math.min(4 + Math.floor((level - 1) / 2), COLOR_KEYS.length));
+            for (let c = 0; c < GRID_COLS; c++) {
+                const colorKey = availableColors[Math.floor(Math.random() * availableColors.length)];
+                grid[0][c] = BUBBLE_TYPES[colorKey];
+            }
+        }
+
+        function checkGameOverOrClear() {
+            // 檢查防禦線 (例如倒數第 2 行)
+            const deadlineRow = GRID_ROWS - 2;
+            let isGameOver = false;
+
+            for (let c = 0; c < GRID_COLS; c++) {
+                if (grid[deadlineRow][c]) {
+                    isGameOver = true;
+                    break;
+                }
+            }
+
+            if (isGameOver) {
+                triggerGameOver();
+                return;
+            }
+
+            // 檢查是否全部消除清空 (Clear Stage)
+            let hasBubbles = false;
+            for (let r = 0; r < GRID_ROWS; r++) {
+                for (let c = 0; c < GRID_COLS; c++) {
+                    if (grid[r][c]) {
+                        hasBubbles = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!hasBubbles) {
+                triggerStageClear();
+            }
+        }
+
+        function triggerGameOver() {
+            gameState = 'GAMEOVER';
+            playSound('gameover');
+            stopBGM();
+            modalTitle.textContent = "GAME OVER";
+            modalTitle.className = "text-3xl font-black mb-2 text-rose-500 neon-text-pink";
+            modalSubtitle.textContent = "泡泡突破防禦線！再接再厲！";
+            finalScore.textContent = score;
+            statusModal.classList.remove('hidden');
+        }
+
+        function triggerStageClear() {
+            gameState = 'CLEAR';
+            playSound('clear');
+            modalTitle.textContent = "STAGE CLEAR!";
+            modalTitle.className = "text-3xl font-black mb-2 text-cyan-400 neon-text-cyan";
+            modalSubtitle.textContent = `太棒了！準備挑戰第 ${level + 1} 關！`;
+            finalScore.textContent = score;
+            statusModal.classList.remove('hidden');
+        }
+
+        function addScore(pts, pos) {
+            score += pts;
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('pb_high_score', highScore.toString());
+            }
+            scoreDisplay.textContent = score;
+            highScoreDisplay.textContent = highScore;
+
+            if (pos) {
+                scoreTexts.push({
+                    x: pos.x,
+                    y: pos.y,
+                    text: `+${pts}`,
+                    alpha: 1.0,
+                    vy: -1.5
+                });
+            }
+        }
+
+        function createParticles(x, y, color) {
+            for (let i = 0; i < 12; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 5 + 2;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: Math.random() * 3 + 2,
+                    color: color,
+                    alpha: 1.0,
+                    decay: Math.random() * 0.03 + 0.02
+                });
+            }
+        }
+
+        // --- 5. 繪製引擎 ---
+        function render() {
+            // Screen Shake 效果計算
+            ctx.save();
+            if (screenShakeTime > 0) {
+                const offsetX = (Math.random() - 0.5) * 10;
+                const offsetY = (Math.random() - 0.5) * 10;
+                ctx.translate(offsetX, offsetY);
+                screenShakeTime--;
+            }
+
+            // 清除全域背景
+            ctx.fillStyle = '#090D16';
+            ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+
+            // 繪製動態科幻背景粒子
+            ctx.fillStyle = '#FFFFFF';
+            bgParticles.forEach(p => {
+                p.y += p.speedY;
+                if (p.y < 0) p.y = window.innerHeight;
+                ctx.globalAlpha = p.alpha;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1.0;
+
+            // 繪製 Playfield 邊框與霓虹外發光
+            ctx.strokeStyle = 'rgba(6, 182, 212, 0.6)';
+            ctx.lineWidth = 4;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#06B6D4';
+            ctx.strokeRect(playfield.x, playfield.y, playfield.width, playfield.height);
+            ctx.shadowBlur = 0; // 重置 Shadow
+
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+            ctx.fillRect(playfield.x, playfield.y, playfield.width, playfield.height);
+
+            // 繪製預警防線 (Deadline)
+            const deadlineY = playfield.y + playfield.topPadding + (GRID_ROWS - 2) * (BUBBLE_RADIUS * 1.732);
+            ctx.strokeStyle = 'rgba(239, 68, 68, 0.7)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 6]);
+            ctx.beginPath();
+            ctx.moveTo(playfield.x, deadlineY);
+            ctx.lineTo(playfield.x + playfield.width, deadlineY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 繪製網格泡泡
+            for (let r = 0; r < GRID_ROWS; r++) {
+                const colsInRow = (r % 2 === 1) ? GRID_COLS - 1 : GRID_COLS;
+                for (let c = 0; c < colsInRow; c++) {
+                    if (grid[r][c]) {
+                        const pos = getBubbleCenter(r, c);
+                        drawBubble(pos.x, pos.y, BUBBLE_RADIUS, grid[r][c]);
+                    }
+                }
+            }
+
+            // 繪製瞄準預測線 (Aiming Line with Reflection)
+            if (gameState === 'PLAYING' && !currentFlyingBubble) {
+                drawAimingGuide();
+            }
+
+            // 繪製飛射中的泡泡
+            if (currentFlyingBubble) {
+                drawBubble(currentFlyingBubble.x, currentFlyingBubble.y, BUBBLE_RADIUS, currentFlyingBubble.type);
+            }
+
+            // 繪製懸空掉落中的泡泡
+            for (let i = floatingBubbles.length - 1; i >= 0; i--) {
+                const fb = floatingBubbles[i];
+                fb.x += fb.vx;
+                fb.y += fb.vy;
+                fb.vy += fb.gravity;
+                drawBubble(fb.x, fb.y, BUBBLE_RADIUS, fb.type);
+
+                if (fb.y > playfield.y + playfield.height + 50) {
+                    floatingBubbles.splice(i, 1);
+                }
+            }
+
+            // 繪製底部發射器與待發射泡泡
+            drawCannon();
+
+            // 繪製爆裂粒子
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.decay;
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1.0;
+
+            // 繪製得分動態文字
+            for (let i = scoreTexts.length - 1; i >= 0; i--) {
+                const st = scoreTexts[i];
+                st.y += st.vy;
+                st.alpha -= 0.02;
+                if (st.alpha <= 0) {
+                    scoreTexts.splice(i, 1);
+                    continue;
+                }
+                ctx.globalAlpha = st.alpha;
+                ctx.fillStyle = '#FBBF24';
+                ctx.font = '900 16px "Zen Maru Gothic"';
+                ctx.fillText(st.text, st.x - 15, st.y);
+            }
+            ctx.globalAlpha = 1.0;
+
+            ctx.restore();
+            requestAnimationFrame(render);
+        }
+
+        function drawBubble(x, y, radius, type) {
+            ctx.save();
+
+            // 霓虹外發光
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = type.color;
+
+            // 漸層泡泡球體
+            const grad = ctx.createRadialGradient(
+                x - radius * 0.3, y - radius * 0.3, radius * 0.1,
+                x, y, radius
+            );
+            grad.addColorStop(0, type.light || '#FFF');
+            grad.addColorStop(0.6, type.color);
+            grad.addColorStop(1, type.dark || '#000');
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(x, y, radius - 1, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 特殊泡泡圖示或高光繪製
+            if (type.special) {
+                ctx.fillStyle = '#FFF';
+                ctx.font = '900 12px "Zen Maru Gothic"';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                let icon = '★';
+                if (type.special === 'BOMB') icon = '💣';
+                if (type.special === 'RAINBOW') icon = '🌈';
+                if (type.special === 'LASER') icon = '⚡';
+                ctx.fillText(icon, x, y);
+            } else {
+                // 立體白色弧形高光
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(x - radius * 0.2, y - radius * 0.2, radius * 0.5, Math.PI * 1.1, Math.PI * 1.7);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function drawCannon() {
+            ctx.save();
+
+            // 繪製發射器基座
+            ctx.fillStyle = '#1E293B';
+            ctx.strokeStyle = '#06B6D4';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(cannon.x, cannon.y, BUBBLE_RADIUS * 1.6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // 發射管旋轉
+            ctx.translate(cannon.x, cannon.y);
+            ctx.rotate(-cannon.angle + Math.PI / 2);
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(-6, -BUBBLE_RADIUS * 1.8, 12, BUBBLE_RADIUS * 1.5);
+            ctx.restore();
+
+            // 當前待發射泡泡
+            if (currentBubble) {
+                drawBubble(cannon.x, cannon.y, BUBBLE_RADIUS, currentBubble);
+            }
+
+            // 下一個預備泡泡 (Next Bubble)
+            if (nextBubble) {
+                const nextX = playfield.x + 35;
+                const nextY = playfield.y + playfield.height - 30;
+                ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                ctx.fillRect(nextX - 22, nextY - 30, 44, 45);
+                ctx.fillStyle = '#94A3B8';
+                ctx.font = '700 10px "Zen Maru Gothic"';
+                ctx.fillText('NEXT', nextX - 12, nextY - 18);
+                drawBubble(nextX, nextY, BUBBLE_RADIUS * 0.75, nextBubble);
+            }
+
+            ctx.restore();
+        }
+
+        function drawAimingGuide() {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(6, 182, 212, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 6]);
+
+            let currX = cannon.x;
+            let currY = cannon.y;
+            let dirX = Math.cos(cannon.angle);
+            let dirY = -Math.sin(cannon.angle);
+
+            const leftBound = playfield.x + BUBBLE_RADIUS;
+            const rightBound = playfield.x + playfield.width - BUBBLE_RADIUS;
+
+            ctx.beginPath();
+            ctx.moveTo(currX, currY);
+
+            // 計算反彈與瞄準線
+            for (let step = 0; step < 600; step += 5) {
+                currX += dirX * 5;
+                currY += dirY * 5;
+
+                if (currX <= leftBound || currX >= rightBound) {
+                    dirX *= -1;
+                    ctx.lineTo(currX, currY);
+                }
+
+                // 碰到頂部牆壁即停止
+                if (currY <= playfield.y + playfield.topPadding + BUBBLE_RADIUS) {
+                    ctx.lineTo(currX, currY);
+                    break;
+                }
+            }
+
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // --- 6. 事件控制與互動 ---
+        function setCannonAngleFromPointer(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = clientX - rect.left;
+            const mouseY = clientY - rect.top;
+
+            const dx = mouseX - cannon.x;
+            const dy = cannon.y - mouseY; // Canvas Y 軸向下
+
+            let angle = Math.atan2(dy, dx);
+            // 限制發射角度在左右 15° 至 165° 之間
+            const minAngle = 15 * (Math.PI / 180);
+            const maxAngle = 165 * (Math.PI / 180);
+            if (angle < minAngle) angle = minAngle;
+            if (angle > maxAngle) angle = maxAngle;
+
+            cannon.angle = angle;
+        }
+
+        // 滑鼠與觸控監聽
+        window.addEventListener('mousemove', (e) => {
+            if (gameState === 'PLAYING') {
+                setCannonAngleFromPointer(e.clientX, e.clientY);
+            }
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (gameState === 'PLAYING' && e.touches.length > 0) {
+                setCannonAngleFromPointer(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        }, { passive: false });
+
+        window.addEventListener('mouseup', () => {
+            if (gameState === 'PLAYING') shootBubble();
+        });
+
+        window.addEventListener('touchend', () => {
+            if (gameState === 'PLAYING') shootBubble();
+        });
+
+        // 鍵盤操控支援
+        window.addEventListener('keydown', (e) => {
+            if (gameState !== 'PLAYING') return;
+
+            if (e.key === 'ArrowLeft' || e.key === 'a') {
+                cannon.angle = Math.min(cannon.angle + 0.05, 165 * (Math.PI / 180));
+            } else if (e.key === 'ArrowRight' || e.key === 'd') {
+                cannon.angle = Math.max(cannon.angle - 0.05, 15 * (Math.PI / 180));
+            } else if (e.key === ' ' || e.key === 'Spacebar') {
+                shootBubble();
+            }
+        });
+
+        // 按鈕與 Audio 解鎖綁定
+        function handleStartGame() {
+            initAudio();
+            startBGM();
+            score = 0;
+            level = 1;
+            scoreDisplay.textContent = score;
+            levelDisplay.textContent = level;
+            highScoreDisplay.textContent = highScore;
+
+            initGrid();
+            currentBubble = null;
+            nextBubble = null;
+            prepareNextBubbles();
+
+            gameState = 'PLAYING';
+            startModal.classList.add('hidden');
+            statusModal.classList.add('hidden');
+        }
+
+        function handleNextStageOrRetry() {
+            initAudio();
+            if (gameState === 'CLEAR') {
+                level++;
+                levelDisplay.textContent = level;
+                initGrid();
+                currentBubble = null;
+                nextBubble = null;
+                prepareNextBubbles();
+                gameState = 'PLAYING';
+                statusModal.classList.add('hidden');
+                startBGM();
+            } else {
+                handleStartGame();
+            }
+        }
+
+        startBtn.addEventListener('click', handleStartGame);
+        modalActionBtn.addEventListener('click', handleNextStageOrRetry);
+        restartBtn.addEventListener('click', () => {
+            if (confirm("確定要重新開始遊戲嗎？")) {
+                handleStartGame();
+            }
+        });
+
+        // 音樂與音效開關控制
+        bgmBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            bgmEnabled = !bgmEnabled;
+            localStorage.setItem('pb_bgm', bgmEnabled.toString());
+            bgmBtn.textContent = bgmEnabled ? '🎵 BGM ON' : '🎵 BGM OFF';
+            if (bgmEnabled) startBGM();
+            else stopBGM();
+        });
+
+        sfxBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sfxEnabled = !sfxEnabled;
+            localStorage.setItem('pb_sfx', sfxEnabled.toString());
+            sfxBtn.textContent = sfxEnabled ? '🔊 SFX ON' : '🔇 SFX OFF';
+        });
+
+        // 初始化狀態與啟動繪製迴圈
+        bgmBtn.textContent = bgmEnabled ? '🎵 BGM ON' : '🎵 BGM OFF';
+        sfxBtn.textContent = sfxEnabled ? '🔊 SFX ON' : '🔇 SFX OFF';
+        highScoreDisplay.textContent = highScore;
+
+        resizeCanvas();
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>
